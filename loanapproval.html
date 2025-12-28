@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manila Loan - Quick Eligibility Check</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 40px;
+        }
+        
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* --- NEW FORM STYLES --- */
+        .form-section {
+            padding: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .section-title {
+            color: #2d3748;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+            font-size: 1.4em;
+        }
+
+        /* --- UPLOAD STYLES --- */
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            border: 2px dashed #667eea;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #fdfdfd;
+        }
+        
+        .upload-icon {
+            font-size: 3.5em;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .file-input { display: none; }
+        
+        .file-label {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 10px 25px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-top: 15px;
+        }
+        
+        .file-label:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 20px;
+            grid-column: 1 / -1; /* Spans full width */
+        }
+        
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 176, 155, 0.4);
+        }
+        
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #cbd5e0;
+        }
+
+        /* --- RESULTS STYLES --- */
+        .results-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-top: 1px solid #e2e8f0;
+            display: none; /* Hidden by default */
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        .risk-low { background: #d4edda; color: #155724; }
+        .risk-high { background: #f8d7da; color: #721c24; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            grid-column: 1 / -1;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .file-info-text {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-search-dollar"></i> Manila Quick Loan Check</h1>
+            <p>Fast residency and document verification system</p>
+        </div>
+        
+        <div class="main-content">
+            
+            <div class="form-section">
+                <h3 class="section-title"><i class="fas fa-user"></i> Personal Information</h3>
+                
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="fullName" class="form-control" placeholder="e.g. Juan Dela Cruz">
+                </div>
+
+                <div class="form-group">
+                    <label>Manila District (Residency Check)</label>
+                    <select id="district" class="form-control">
+                        <option value="">Select District...</option>
+                        <option value="Tondo">Tondo</option>
+                        <option value="Binondo">Binondo</option>
+                        <option value="Quiapo">Quiapo</option>
+                        <option value="Sampaloc">Sampaloc</option>
+                        <option value="Malate">Malate</option>
+                        <option value="Ermita">Ermita</option>
+                        <option value="Santa Ana">Santa Ana</option>
+                        <option value="Pandacan">Pandacan</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Age</label>
+                    <input type="number" id="age" class="form-control" placeholder="Age">
+                </div>
+            </div>
+
+            <div class="upload-section">
+                <div class="upload-icon">
+                    <i class="fas fa-id-card"></i>
+                </div>
+                <h3>Upload Valid ID</h3>
+                <p style="color: #718096; font-size: 0.9em; margin-bottom: 10px;">Government Issued ID or Barangay Clearance</p>
+                
+                <input type="file" id="fileInput" class="file-input" accept=".pdf,.png,.jpg,.jpeg">
+                <label for="fileInput" class="file-label">
+                    <i class="fas fa-cloud-upload-alt"></i> Choose File
+                </label>
+                <div id="fileDisplay" class="file-info-text">No file chosen</div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Verifying Residency & Authenticity...</p>
+            </div>
+
+            <button id="analyzeBtn" class="analyze-btn" disabled>
+                Verify Application
+            </button>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <h3 style="margin-bottom: 20px; color: #2d3748;">
+                Verification Result <span id="riskBadge" class="risk-badge"></span>
+            </h3>
+
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px; height: 200px;">
+                    <canvas id="resultsChart"></canvas>
+                </div>
+
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                        <strong><i class="fas fa-map-marker-alt"></i> Residency Check:</strong>
+                        <span id="residencyResult" style="float: right;">Pending</span>
+                    </div>
+                    <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                        <strong><i class="fas fa-file-contract"></i> ID Authenticity:</strong>
+                        <span id="authResult" style="float: right;">Pending</span>
+                    </div>
+                    <div style="background: white; padding: 15px; border-radius: 10px;">
+                        <strong><i class="fas fa-robot"></i> AI Recommendation:</strong>
+                        <span id="aiRecommendation" style="float: right; font-weight: bold;">Pending</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let chartInstance = null;
+
+        // 1. Handle File Selection
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                selectedFile = this.files[0];
+                document.getElementById('fileDisplay').innerHTML = 
+                    `<i class="fas fa-check-circle" style="color: green;"></i> ${selectedFile.name}`;
+                checkFormValidity();
+            }
+        });
+
+        // 2. Handle Inputs for Validation
+        const inputs = ['fullName', 'district', 'age'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', checkFormValidity);
+        });
+
+        function checkFormValidity() {
+            const name = document.getElementById('fullName').value;
+            const district = document.getElementById('district').value;
+            const age = document.getElementById('age').value;
+            
+            // Enable button only if info is filled AND file is uploaded
+            const isValid = name && district && age && selectedFile;
+            document.getElementById('analyzeBtn').disabled = !isValid;
+        }
+
+        // 3. Handle Verify Button Click
+        document.getElementById('analyzeBtn').addEventListener('click', function() {
+            // UI Transition
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('resultsSection').style.display = 'none';
+
+            // SIMULATE BACKEND DELAY (Replace with real fetch() in production)
+            setTimeout(() => {
+                processSimulation();
+            }, 2000);
+        });
+
+        function processSimulation() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('analyzeBtn').disabled = false;
+
+            // Get Input Values
+            const district = document.getElementById('district').value;
+            
+            // SIMULATED LOGIC
+            // In a real app, this data comes from the Python backend (OCR + ELA)
+            const isManilaResident = true; // Based on district select
+            const authenticityScore = Math.floor(Math.random() * (100 - 80 + 1) + 80); // Random high score for demo
+            const riskScore = 100 - authenticityScore;
+
+            // Update UI Text
+            const badge = document.getElementById('riskBadge');
+            const aiRec = document.getElementById('aiRecommendation');
+            
+            document.getElementById('residencyResult').innerHTML = `<span style="color: green;">Verified (${district})</span>`;
+            document.getElementById('authResult').textContent = `${authenticityScore}% Trust Score`;
+
+            if(authenticityScore > 85) {
+                badge.className = 'risk-badge risk-low';
+                badge.textContent = 'LOW RISK';
+                aiRec.textContent = 'APPROVE';
+                aiRec.style.color = 'green';
+            } else {
+                badge.className = 'risk-badge risk-high';
+                badge.textContent = 'HIGH RISK';
+                aiRec.textContent = 'MANUAL REVIEW';
+                aiRec.style.color = '#dc3545';
+            }
+
+            // Update Chart
+            updateChart(authenticityScore, riskScore);
+        }
+
+        function updateChart(auth, risk) {
+            const ctx = document.getElementById('resultsChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Authentic', 'Risk Factor'],
+                    datasets: [{
+                        data: [auth, risk],
+                        backgroundColor: ['#00b09b', '#dc3545'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
