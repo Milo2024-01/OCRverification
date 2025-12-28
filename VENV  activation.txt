@@ -1,0 +1,56 @@
+cd C:\Users\Jethto\Documents\OCRverification -  CD
+# If you're already in OCRverification, just create venv
+
+	python -m venv venv - CREATE
+	 .\venv\Scripts\activate  - ACTIVATE VENV
+
+1. Core Python Dependencies (Required)
+	pip install flask flask-cors pillow pytesseract opencv-python numpy werkzeug
+2. PDF Support (If You Allow PDF Uploads)
+	pip install pdf2image PyPDF2
+		Extra Windows Requirement
+		You must install Poppler:
+		1. Download Poppler for Windows - https://github.com/oschwartz10612/poppler-windows/releases/
+		2. Extract it
+		3. Add bin/ folder to System PATH
+		Without this, PDF OCR will fail.
+
+3. Face Matching Dependencies (Required)
+	pip install face-recognition dlib
+
+	⚠️ Important (Windows users)
+	dlib is the most common installation issue.
+
+	If normal install fails:
+		pip install cmake - https://cmake.org/download/
+		pip install dlib
+
+
+	If it still fails, use a precompiled wheel matching:
+	Python version
+	Windows architecture (64‑bit)
+
+4. Tesseract OCR Engine (SYSTEM INSTALL – REQUIRED)
+	Install Tesseract for Windows:
+	1.Download from official installer - https://digi.bib.uni-mannheim.de/tesseract/
+	2.Install to:
+		C:\Program Files\Tesseract-OCR\
+	3. Add to PATH or set explicitly in code:
+		import pytesseract
+		pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+5. Optional (Recommended for Stability)
+	pip install python-dotenv
+
+6. Full One‑Line Install (Python Packages Only)
+	pip install flask flask-cors pillow pytesseract opencv-python numpy werkzeug pdf2image PyPDF2 face-recognition cmake python-dotenv
+
+7. Verify Installation (Quick Test)
+
+	Run:
+
+		python -c "import flask, pytesseract, cv2, face_recognition; print('All OK')"
+
+
+	If you see:
+	All OK

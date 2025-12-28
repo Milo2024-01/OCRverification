@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Verification System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(to right, #4a6fa5, #2c3e50);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .logo i {
+            font-size: 36px;
+            color: #00d4ff;
+        }
+        
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #bdc3c7;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 25px;
+            color: #2c3e50;
+            font-size: 22px;
+            font-weight: 600;
+        }
+        
+        .section-title i {
+            color: #4a6fa5;
+        }
+        
+        .document-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        
+        .document-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .document-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-color: #4a6fa5;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .document-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        
+        .required-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .document-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .document-description {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+        
+        .document-select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            color: #2c3e50;
+            background: white;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        .document-select:focus {
+            outline: none;
+            border-color: #4a6fa5;
+        }
+        
+        .file-upload-area {
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            padding: 30px 20px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+        
+        .file-upload-area:hover {
+            border-color: #4a6fa5;
+            background: #f0f7ff;
+        }
+        
+        .file-upload-area.drag-over {
+            border-color: #00d4ff;
+            background: #e6f7ff;
+        }
+        
+        .upload-icon {
+            font-size: 40px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+        
+        .upload-text {
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .upload-hint {
+            color: #95a5a6;
+            font-size: 14px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .preview-container {
+            margin-top: 20px;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .preview-placeholder {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+            color: #95a5a6;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .verification-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+        
+        .verification-result {
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            border-left: 5px solid #95a5a6;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .verification-result.legit {
+            border-left-color: #27ae60;
+            background: #e8f6ef;
+        }
+        
+        .verification-result.fake {
+            border-left-color: #e74c3c;
+            background: #fdedec;
+        }
+        
+        .verification-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .verification-details {
+            margin-top: 15px;
+        }
+        
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(to right, #4a6fa5, #2c3e50);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 20px rgba(42, 108, 175, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+        
+        .btn-secondary:hover {
+            background: #d5dbdb;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4a6fa5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-verifying {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .status-legit {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-fake {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #95a5a6;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 768px) {
+            .document-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>Document Verification System</h1>
+            </div>
+            <p class="subtitle">Upload and verify your documents with AI-powered authenticity checks</p>
+        </header>
+        
+        <div class="main-content">
+            <!-- Document Upload Section -->
+            <div class="upload-section">
+                <h2 class="section-title">
+                    <i class="fas fa-upload"></i>
+                    Upload Required Documents
+                </h2>
+                
+                <div class="document-grid">
+                    <!-- Primary ID Card -->
+                    <div class="document-card">
+                        <div class="card-header">
+                            <div class="document-icon">
+                                <i class="fas fa-id-card"></i>
+                            </div>
+                            <span class="required-badge">REQUIRED</span>
+                        </div>
+                        
+                        <h3 class="document-name">Primary Identification</h3>
+                        <p class="document-description">
+                            Upload a clear image of your government-issued ID document.
+                            This will be verified for authenticity.
+                        </p>
+                        
+                        <select class="document-select" id="id-type">
+                            <option value="">Select Document Type</option>
+                            <option value="passport">Passport</option>
+                            <option value="driver_license">Driver's License</option>
+                            <option value="national_id">National ID</option>
+                            <option value="voter_id">Voter's ID</option>
+                            <option value="other">Other Government ID</option>
+                        </select>
+                        
+                        <div class="file-upload-area" id="id-upload-area">
+                            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                            <div class="upload-text">Click to upload ID</div>
+                            <div class="upload-hint">Supports: JPG, PNG, PDF (Max 5MB)</div>
+                            <input type="file" id="id-file" class="file-input" accept="image/*,.pdf">
+                        </div>
+                        
+                        <div class="preview-container" id="id-preview">
+                            <div class="preview-placeholder">No ID uploaded yet</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Selfie with ID Card -->
+                    <div class="document-card">
+                        <div class="card-header">
+                            <div class="document-icon">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                            <span class="required-badge">REQUIRED</span>
+                        </div>
+                        
+                        <h3 class="document-name">Selfie with ID</h3>
+                        <p class="document-description">
+                            Take a selfie holding your ID next to your face.
+                            Ensure both your face and the ID are clearly visible.
+                        </p>
+                        
+                        <div class="file-upload-area" id="selfie-upload-area">
+                            <i class="fas fa-camera upload-icon"></i>
+                            <div class="upload-text">Click to upload selfie</div>
+                            <div class="upload-hint">Supports: JPG, PNG (Max 5MB)</div>
+                            <input type="file" id="selfie-file" class="file-input" accept="image/*">
+                        </div>
+                        
+                        <div class="preview-container" id="selfie-preview">
+                            <div class="preview-placeholder">No selfie uploaded yet</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Payslip Card -->
+                    <div class="document-card">
+                        <div class="card-header">
+                            <div class="document-icon">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </div>
+                            <span class="required-badge">REQUIRED</span>
+                        </div>
+                        
+                        <h3 class="document-name">Latest Payslip</h3>
+                        <p class="document-description">
+                            Upload your most recent payslip for employment verification.
+                            This document will not be verified for authenticity.
+                        </p>
+                        
+                        <div class="file-upload-area" id="payslip-upload-area">
+                            <i class="fas fa-file-upload upload-icon"></i>
+                            <div class="upload-text">Click to upload payslip</div>
+                            <div class="upload-hint">Supports: JPG, PNG, PDF (Max 5MB)</div>
+                            <input type="file" id="payslip-file" class="file-input" accept="image/*,.pdf">
+                        </div>
+                        
+                        <div class="preview-container" id="payslip-preview">
+                            <div class="preview-placeholder">No payslip uploaded yet</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Company ID Card -->
+                    <div class="document-card">
+                        <div class="card-header">
+                            <div class="document-icon">
+                                <i class="fas fa-briefcase"></i>
+                            </div>
+                            <span class="required-badge">REQUIRED</span>
+                        </div>
+                        
+                        <h3 class="document-name">Company ID</h3>
+                        <p class="document-description">
+                            Upload a clear image of your company ID card.
+                            This document will not be verified for authenticity.
+                        </p>
+                        
+                        <div class="file-upload-area" id="company-id-upload-area">
+                            <i class="fas fa-id-badge upload-icon"></i>
+                            <div class="upload-text">Click to upload company ID</div>
+                            <div class="upload-hint">Supports: JPG, PNG (Max 5MB)</div>
+                            <input type="file" id="company-id-file" class="file-input" accept="image/*">
+                        </div>
+                        
+                        <div class="preview-container" id="company-id-preview">
+                            <div class="preview-placeholder">No company ID uploaded yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Verification Section -->
+            <div class="verification-section">
+                <h2 class="section-title">
+                    <i class="fas fa-search"></i>
+                    Document Verification
+                </h2>
+                
+                <div class="status-indicator status-pending" id="verification-status">
+                    <i class="fas fa-clock"></i>
+                    Ready for verification
+                </div>
+                
+                <div class="verification-result" id="verification-result">
+                    <div class="verification-title">
+                        <i class="fas fa-check-circle" id="result-icon"></i>
+                        <span id="result-title">Verification Result</span>
+                    </div>
+                    <p id="result-message">Verification results will appear here.</p>
+                    
+                    <div class="verification-details" id="result-details">
+                        <!-- Details will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Verifying document authenticity...</p>
+                    <p class="upload-hint">This may take a few seconds</p>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-secondary" id="reset-btn">
+                        <i class="fas fa-redo"></i> Reset All
+                    </button>
+                    <button class="btn btn-primary" id="verify-btn">
+                        <i class="fas fa-shield-alt"></i> Verify Documents
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2024 Document Verification System | All uploaded documents are encrypted and secure</p>
+            <p style="margin-top: 10px; font-size: 12px;">
+                <i class="fas fa-info-circle"></i> Only Primary ID documents undergo authenticity verification
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Elements
+        const idFileInput = document.getElementById('id-file');
+        const selfieFileInput = document.getElementById('selfie-file');
+        const payslipFileInput = document.getElementById('payslip-file');
+        const companyIdFileInput = document.getElementById('company-id-file');
+        
+        const uploadAreas = document.querySelectorAll('.file-upload-area');
+        const previewContainers = document.querySelectorAll('.preview-container');
+        const verifyBtn = document.getElementById('verify-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const loadingDiv = document.getElementById('loading');
+        const verificationResult = document.getElementById('verification-result');
+        const verificationStatus = document.getElementById('verification-status');
+        const idTypeSelect = document.getElementById('id-type');
+        
+        // File upload data
+        const uploadedFiles = {
+            id: null,
+            selfie: null,
+            payslip: null,
+            companyId: null
+        };
+        
+        // Initialize event listeners
+        function initialize() {
+            // ID Type selection
+            idTypeSelect.addEventListener('change', function() {
+                if (this.value && uploadedFiles.id) {
+                    updateVerificationStatus();
+                }
+            });
+            
+            // File input change handlers
+            idFileInput.addEventListener('change', (e) => handleFileUpload(e, 'id'));
+            selfieFileInput.addEventListener('change', (e) => handleFileUpload(e, 'selfie'));
+            payslipFileInput.addEventListener('change', (e) => handleFileUpload(e, 'payslip'));
+            companyIdFileInput.addEventListener('change', (e) => handleFileUpload(e, 'companyId'));
+            
+            // Upload area click handlers
+            document.getElementById('id-upload-area').addEventListener('click', () => idFileInput.click());
+            document.getElementById('selfie-upload-area').addEventListener('click', () => selfieFileInput.click());
+            document.getElementById('payslip-upload-area').addEventListener('click', () => payslipFileInput.click());
+            document.getElementById('company-id-upload-area').addEventListener('click', () => companyIdFileInput.click());
+            
+            // Drag and drop functionality
+            uploadAreas.forEach(area => {
+                area.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    area.classList.add('drag-over');
+                });
+                
+                area.addEventListener('dragleave', () => {
+                    area.classList.remove('drag-over');
+                });
+                
+                area.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    area.classList.remove('drag-over');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        const file = files[0];
+                        const fileType = area.id.split('-')[0]; // id, selfie, payslip, company-id
+                        handleDroppedFile(file, fileType);
+                    }
+                });
+            });
+            
+            // Verify button
+            verifyBtn.addEventListener('click', verifyDocuments);
+            
+            // Reset button
+            resetBtn.addEventListener('click', resetAll);
+            
+            // Update verification button state
+            updateVerificationButton();
+        }
+        
+        // Handle file upload
+        function handleFileUpload(event, fileType) {
+            const file = event.target.files[0];
+            if (file) {
+                processFile(file, fileType);
+            }
+        }
+        
+        // Handle dropped file
+        function handleDroppedFile(file, areaId) {
+            let fileType;
+            switch(areaId) {
+                case 'id': fileType = 'id'; break;
+                case 'selfie': fileType = 'selfie'; break;
+                case 'payslip': fileType = 'payslip'; break;
+                case 'company': fileType = 'companyId'; break;
+                default: return;
+            }
+            
+            processFile(file, fileType);
+            
+            // Update the corresponding file input
+            const fileInput = document.getElementById(`${fileType}-file`);
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+        }
+        
+        // Process uploaded file
+        function processFile(file, fileType) {
+            // Check file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`File "${file.name}" exceeds 5MB size limit.`);
+                return;
+            }
+            
+            // Check file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+            if (!validTypes.includes(file.type.toLowerCase())) {
+                alert(`File type not supported. Please upload JPG, PNG, or PDF files.`);
+                return;
+            }
+            
+            // Store file
+            uploadedFiles[fileType] = {
+                file: file,
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                uploadedAt: new Date()
+            };
+            
+            // Show preview
+            showPreview(file, fileType);
+            
+            // Update verification button state
+            updateVerificationButton();
+            
+            // Update status
+            updateVerificationStatus();
+        }
+        
+        // Show file preview
+        function showPreview(file, fileType) {
+            const previewContainer = document.getElementById(`${fileType}-preview`);
+            
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewContainer.innerHTML = `
+                        <img src="${e.target.result}" class="preview-image" alt="${file.name}">
+                        <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                            ${file.name} (${formatFileSize(file.size)})
+                        </div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else if (file.type === 'application/pdf') {
+                previewContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fas fa-file-pdf" style="font-size: 48px; color: #e74c3c;"></i>
+                        <div style="margin-top: 10px; font-weight: 600;">${file.name}</div>
+                        <div style="font-size: 12px; color: #666;">PDF Document (${formatFileSize(file.size)})</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Update verification button state
+        function updateVerificationButton() {
+            const hasID = uploadedFiles.id !== null;
+            const hasSelfie = uploadedFiles.selfie !== null;
+            const hasIDType = idTypeSelect.value !== '';
+            
+            verifyBtn.disabled = !(hasID && hasSelfie && hasIDType);
+            
+            if (!verifyBtn.disabled) {
+                verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Documents';
+            }
+        }
+        
+        // Update verification status display
+        function updateVerificationStatus() {
+            const hasID = uploadedFiles.id !== null;
+            const hasSelfie = uploadedFiles.selfie !== null;
+            const hasIDType = idTypeSelect.value !== '';
+            
+            if (hasID && hasSelfie && hasIDType) {
+                verificationStatus.className = 'status-indicator status-verifying';
+                verificationStatus.innerHTML = `
+                    <i class="fas fa-check-circle"></i>
+                    Ready to verify ${idTypeSelect.options[idTypeSelect.selectedIndex].text}
+                `;
+            } else {
+                verificationStatus.className = 'status-indicator status-pending';
+                verificationStatus.innerHTML = `
+                    <i class="fas fa-clock"></i>
+                    ${hasIDType ? 'Upload required documents' : 'Select ID type and upload documents'}
+                `;
+            }
+        }
+        
+        // Verify documents
+        async function verifyDocuments() {
+            // Validate required fields
+            if (!idTypeSelect.value) {
+                alert('Please select the type of ID document.');
+                return;
+            }
+            
+            if (!uploadedFiles.id) {
+                alert('Please upload a Primary ID document.');
+                return;
+            }
+            
+            // Show loading
+            loadingDiv.style.display = 'block';
+            verificationResult.style.display = 'none';
+            verifyBtn.disabled = true;
+            verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+            
+            try {
+                // Create FormData
+                const formData = new FormData();
+                formData.append('id_type', idTypeSelect.value);
+                formData.append('id_file', uploadedFiles.id.file);
+                formData.append('selfie_file', uploadedFiles.selfie.file);
+                
+                // Add optional files if they exist
+                if (uploadedFiles.payslip) {
+                    formData.append('payslip_file', uploadedFiles.payslip.file);
+                }
+                
+                if (uploadedFiles.companyId) {
+                    formData.append('company_id_file', uploadedFiles.companyId.file);
+                }
+                
+                // Send to backend
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                // Display results
+                displayVerificationResult(result);
+                
+            } catch (error) {
+                console.error('Verification error:', error);
+                displayError('Failed to verify documents. Please try again.');
+            } finally {
+                // Hide loading
+                loadingDiv.style.display = 'none';
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Documents';
+            }
+        }
+        
+        // Display verification result
+        function displayVerificationResult(result) {
+            verificationResult.style.display = 'block';
+            
+            if (result.success) {
+                if (result.id_verification.is_authentic) {
+                    // Legitimate document
+                    verificationResult.className = 'verification-result legit';
+                    document.getElementById('result-icon').className = 'fas fa-check-circle';
+                    document.getElementById('result-icon').style.color = '#27ae60';
+                    document.getElementById('result-title').textContent = '✓ Document Verified as Legitimate';
+                    document.getElementById('result-message').textContent = 
+                        `Your ${idTypeSelect.options[idTypeSelect.selectedIndex].text} has been verified as authentic.`;
+                } else {
+                    // Potentially fake document
+                    verificationResult.className = 'verification-result fake';
+                    document.getElementById('result-icon').className = 'fas fa-exclamation-triangle';
+                    document.getElementById('result-icon').style.color = '#e74c3c';
+                    document.getElementById('result-title').textContent = '⚠ Potential Fake Document Detected';
+                    document.getElementById('result-message').textContent = 
+                        `Our system detected potential issues with your ${idTypeSelect.options[idTypeSelect.selectedIndex].text}.`;
+                }
+                
+                // Display details
+                const detailsDiv = document.getElementById('result-details');
+                detailsDiv.innerHTML = '';
+                
+                // Primary ID verification details
+                const idDetails = result.id_verification;
+                if (idDetails.analysis) {
+                    for (const [key, value] of Object.entries(idDetails.analysis)) {
+                        const detailItem = document.createElement('div');
+                        detailItem.className = 'detail-item';
+                        
+                        const keySpan = document.createElement('span');
+                        keySpan.textContent = formatKey(key);
+                        
+                        const valueSpan = document.createElement('span');
+                        valueSpan.textContent = value;
+                        valueSpan.style.fontWeight = '600';
+                        
+                        // Color code based on value
+                        if (typeof value === 'string' && value.toLowerCase().includes('pass')) {
+                            valueSpan.style.color = '#27ae60';
+                        } else if (typeof value === 'string' && value.toLowerCase().includes('fail')) {
+                            valueSpan.style.color = '#e74c3c';
+                        }
+                        
+                        detailItem.appendChild(keySpan);
+                        detailItem.appendChild(valueSpan);
+                        detailsDiv.appendChild(detailItem);
+                    }
+                }
+                
+                // Confidence score
+                const confidenceItem = document.createElement('div');
+                confidenceItem.className = 'detail-item';
+                confidenceItem.innerHTML = `
+                    <span>Confidence Score</span>
+                    <span style="font-weight: 800; color: ${idDetails.confidence > 70 ? '#27ae60' : idDetails.confidence > 40 ? '#f39c12' : '#e74c3c'}">
+                        ${idDetails.confidence}%
+                    </span>
+                `;
+                detailsDiv.appendChild(confidenceItem);
+                
+                // Update status indicator
+                if (idDetails.is_authentic) {
+                    verificationStatus.className = 'status-indicator status-legit';
+                    verificationStatus.innerHTML = `<i class="fas fa-check-circle"></i> Document Verified`;
+                } else {
+                    verificationStatus.className = 'status-indicator status-fake';
+                    verificationStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Verification Failed`;
+                }
+                
+            } else {
+                // Error case
+                verificationResult.className = 'verification-result';
+                document.getElementById('result-icon').className = 'fas fa-exclamation-circle';
+                document.getElementById('result-icon').style.color = '#f39c12';
+                document.getElementById('result-title').textContent = 'Verification Error';
+                document.getElementById('result-message').textContent = result.message || 'An error occurred during verification.';
+                
+                verificationStatus.className = 'status-indicator status-pending';
+                verificationStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> Verification Error`;
+            }
+        }
+        
+        // Display error
+        function displayError(message) {
+            verificationResult.style.display = 'block';
+            verificationResult.className = 'verification-result';
+            document.getElementById('result-icon').className = 'fas fa-exclamation-circle';
+            document.getElementById('result-icon').style.color = '#e74c3c';
+            document.getElementById('result-title').textContent = 'Error';
+            document.getElementById('result-message').textContent = message;
+            
+            verificationStatus.className = 'status-indicator status-pending';
+            verificationStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error Occurred`;
+        }
+        
+        // Reset all
+        function resetAll() {
+            if (confirm('Are you sure you want to reset all uploaded documents?')) {
+                // Clear file inputs
+                idFileInput.value = '';
+                selfieFileInput.value = '';
+                payslipFileInput.value = '';
+                companyIdFileInput.value = '';
+                
+                // Reset uploaded files
+                uploadedFiles.id = null;
+                uploadedFiles.selfie = null;
+                uploadedFiles.payslip = null;
+                uploadedFiles.companyId = null;
+                
+                // Reset previews
+                document.getElementById('id-preview').innerHTML = '<div class="preview-placeholder">No ID uploaded yet</div>';
+                document.getElementById('selfie-preview').innerHTML = '<div class="preview-placeholder">No selfie uploaded yet</div>';
+                document.getElementById('payslip-preview').innerHTML = '<div class="preview-placeholder">No payslip uploaded yet</div>';
+                document.getElementById('company-id-preview').innerHTML = '<div class="preview-placeholder">No company ID uploaded yet</div>';
+                
+                // Reset ID type selection
+                idTypeSelect.value = '';
+                
+                // Hide verification result
+                verificationResult.style.display = 'none';
+                
+                // Reset status
+                verificationStatus.className = 'status-indicator status-pending';
+                verificationStatus.innerHTML = '<i class="fas fa-clock"></i> Ready for verification';
+                
+                // Update button state
+                updateVerificationButton();
+            }
+        }
+        
+        // Helper function to format file size
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' bytes';
+            else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            else return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+        
+        // Helper function to format keys for display
+        function formatKey(key) {
+            return key
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase())
+                .replace(/Id\b/g, 'ID');
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>
