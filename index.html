@@ -437,8 +437,6 @@
                             <option value="passport">Passport</option>
                             <option value="driver_license">Driver's License</option>
                             <option value="national_id">National ID</option>
-                            <option value="voter_id">Voter's ID</option>
-                            <option value="other">Other Government ID</option>
                         </select>
                         
                         <div class="file-upload-area" id="id-upload-area">
@@ -593,7 +591,6 @@
         const companyIdFileInput = document.getElementById('company-id-file');
         
         const uploadAreas = document.querySelectorAll('.file-upload-area');
-        const previewContainers = document.querySelectorAll('.preview-container');
         const verifyBtn = document.getElementById('verify-btn');
         const resetBtn = document.getElementById('reset-btn');
         const loadingDiv = document.getElementById('loading');
@@ -611,8 +608,11 @@
         
         // Initialize event listeners
         function initialize() {
+            console.log('Initializing document verification system...');
+            
             // ID Type selection
             idTypeSelect.addEventListener('change', function() {
+                console.log('ID type selected:', this.value);
                 if (this.value && uploadedFiles.id) {
                     updateVerificationStatus();
                 }
@@ -625,10 +625,22 @@
             companyIdFileInput.addEventListener('change', (e) => handleFileUpload(e, 'companyId'));
             
             // Upload area click handlers
-            document.getElementById('id-upload-area').addEventListener('click', () => idFileInput.click());
-            document.getElementById('selfie-upload-area').addEventListener('click', () => selfieFileInput.click());
-            document.getElementById('payslip-upload-area').addEventListener('click', () => payslipFileInput.click());
-            document.getElementById('company-id-upload-area').addEventListener('click', () => companyIdFileInput.click());
+            document.getElementById('id-upload-area').addEventListener('click', () => {
+                console.log('ID upload area clicked');
+                idFileInput.click();
+            });
+            document.getElementById('selfie-upload-area').addEventListener('click', () => {
+                console.log('Selfie upload area clicked');
+                selfieFileInput.click();
+            });
+            document.getElementById('payslip-upload-area').addEventListener('click', () => {
+                console.log('Payslip upload area clicked');
+                payslipFileInput.click();
+            });
+            document.getElementById('company-id-upload-area').addEventListener('click', () => {
+                console.log('Company ID upload area clicked');
+                companyIdFileInput.click();
+            });
             
             // Drag and drop functionality
             uploadAreas.forEach(area => {
@@ -648,8 +660,9 @@
                     const files = e.dataTransfer.files;
                     if (files.length > 0) {
                         const file = files[0];
-                        const fileType = area.id.split('-')[0]; // id, selfie, payslip, company-id
-                        handleDroppedFile(file, fileType);
+                        const areaId = area.id.replace('-upload-area', '');
+                        console.log('File dropped on area:', areaId, 'File:', file.name);
+                        handleDroppedFile(file, areaId);
                     }
                 });
             });
@@ -662,11 +675,14 @@
             
             // Update verification button state
             updateVerificationButton();
+            
+            console.log('Initialization complete');
         }
         
         // Handle file upload
         function handleFileUpload(event, fileType) {
             const file = event.target.files[0];
+            console.log('File selected for', fileType, ':', file ? file.name : 'No file');
             if (file) {
                 processFile(file, fileType);
             }
@@ -674,36 +690,69 @@
         
         // Handle dropped file
         function handleDroppedFile(file, areaId) {
+            console.log('handleDroppedFile called with areaId:', areaId, 'file:', file.name);
+            
             let fileType;
+            let fileInputId;
+            
             switch(areaId) {
-                case 'id': fileType = 'id'; break;
-                case 'selfie': fileType = 'selfie'; break;
-                case 'payslip': fileType = 'payslip'; break;
-                case 'company': fileType = 'companyId'; break;
-                default: return;
+                case 'id': 
+                    fileType = 'id'; 
+                    fileInputId = 'id-file';
+                    break;
+                case 'selfie': 
+                    fileType = 'selfie'; 
+                    fileInputId = 'selfie-file';
+                    break;
+                case 'payslip': 
+                    fileType = 'payslip'; 
+                    fileInputId = 'payslip-file';
+                    break;
+                case 'company-id': 
+                    fileType = 'companyId'; 
+                    fileInputId = 'company-id-file';
+                    break;
+                default: 
+                    console.log('Unknown area:', areaId);
+                    alert('Unknown upload area. Please try clicking the upload area instead.');
+                    return;
             }
             
+            console.log('Processing file for type:', fileType, 'inputId:', fileInputId);
+            
+            // Process the file
             processFile(file, fileType);
             
             // Update the corresponding file input
-            const fileInput = document.getElementById(`${fileType}-file`);
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
+            const fileInput = document.getElementById(fileInputId);
+            if (fileInput) {
+                console.log('Updating file input:', fileInputId);
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                // Trigger change event
+                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+                console.error('File input not found:', fileInputId);
+            }
         }
         
         // Process uploaded file
         function processFile(file, fileType) {
+            console.log('Processing file:', file.name, 'type:', fileType);
+            
             // Check file size (max 5MB)
             if (file.size > 5 * 1024 * 1024) {
-                alert(`File "${file.name}" exceeds 5MB size limit.`);
+                alert(`File "${file.name}" exceeds 5MB size limit. Please upload a smaller file.`);
                 return;
             }
             
             // Check file type
             const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-            if (!validTypes.includes(file.type.toLowerCase())) {
-                alert(`File type not supported. Please upload JPG, PNG, or PDF files.`);
+            const fileTypeLower = file.type.toLowerCase();
+            if (!validTypes.includes(fileTypeLower)) {
+                alert(`File type "${file.type}" not supported. Please upload JPG, PNG, or PDF files.`);
                 return;
             }
             
@@ -715,6 +764,8 @@
                 size: file.size,
                 uploadedAt: new Date()
             };
+            
+            console.log('File stored for', fileType, ':', uploadedFiles[fileType]);
             
             // Show preview
             showPreview(file, fileType);
@@ -728,11 +779,34 @@
         
         // Show file preview
         function showPreview(file, fileType) {
-            const previewContainer = document.getElementById(`${fileType}-preview`);
+            console.log('Showing preview for', fileType);
+            
+            // Map fileType to preview container ID
+            let previewId;
+            switch(fileType) {
+                case 'id': previewId = 'id-preview'; break;
+                case 'selfie': previewId = 'selfie-preview'; break;
+                case 'payslip': previewId = 'payslip-preview'; break;
+                case 'companyId': previewId = 'company-id-preview'; break;
+                default: 
+                    console.error('Unknown file type for preview:', fileType);
+                    return;
+            }
+            
+            const previewContainer = document.getElementById(previewId);
+            
+            if (!previewContainer) {
+                console.error(`Preview container not found: ${previewId}`);
+                alert(`Cannot show preview. Container ${previewId} not found.`);
+                return;
+            }
+            
+            console.log('Found preview container:', previewId);
             
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
+                    console.log('Image loaded, creating preview');
                     previewContainer.innerHTML = `
                         <img src="${e.target.result}" class="preview-image" alt="${file.name}">
                         <div style="margin-top: 10px; font-size: 12px; color: #666;">
@@ -740,8 +814,19 @@
                         </div>
                     `;
                 };
+                reader.onerror = function(e) {
+                    console.error('Error reading file:', e);
+                    previewContainer.innerHTML = `
+                        <div class="preview-placeholder">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>Error loading preview</div>
+                            <div style="font-size: 12px;">${file.name}</div>
+                        </div>
+                    `;
+                };
                 reader.readAsDataURL(file);
             } else if (file.type === 'application/pdf') {
+                console.log('PDF file, creating PDF preview');
                 previewContainer.innerHTML = `
                     <div style="text-align: center; padding: 20px;">
                         <i class="fas fa-file-pdf" style="font-size: 48px; color: #e74c3c;"></i>
@@ -749,7 +834,18 @@
                         <div style="font-size: 12px; color: #666;">PDF Document (${formatFileSize(file.size)})</div>
                     </div>
                 `;
+            } else {
+                console.log('Other file type, creating generic preview');
+                previewContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fas fa-file" style="font-size: 48px; color: #666;"></i>
+                        <div style="margin-top: 10px; font-weight: 600;">${file.name}</div>
+                        <div style="font-size: 12px; color: #666;">${file.type} (${formatFileSize(file.size)})</div>
+                    </div>
+                `;
             }
+            
+            console.log('Preview created for', fileType);
         }
         
         // Update verification button state
@@ -758,10 +854,14 @@
             const hasSelfie = uploadedFiles.selfie !== null;
             const hasIDType = idTypeSelect.value !== '';
             
+            console.log('Verification button check:', { hasID, hasSelfie, hasIDType });
+            
             verifyBtn.disabled = !(hasID && hasSelfie && hasIDType);
             
             if (!verifyBtn.disabled) {
                 verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Documents';
+            } else {
+                verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Documents (Upload Required Files)';
             }
         }
         
@@ -779,15 +879,23 @@
                 `;
             } else {
                 verificationStatus.className = 'status-indicator status-pending';
+                let message = 'Ready for verification';
+                if (!hasIDType) {
+                    message = 'Select ID type';
+                } else if (!hasID || !hasSelfie) {
+                    message = 'Upload required documents';
+                }
                 verificationStatus.innerHTML = `
                     <i class="fas fa-clock"></i>
-                    ${hasIDType ? 'Upload required documents' : 'Select ID type and upload documents'}
+                    ${message}
                 `;
             }
         }
         
         // Verify documents
         async function verifyDocuments() {
+            console.log('Starting document verification...');
+            
             // Validate required fields
             if (!idTypeSelect.value) {
                 alert('Please select the type of ID document.');
@@ -798,6 +906,13 @@
                 alert('Please upload a Primary ID document.');
                 return;
             }
+            
+            if (!uploadedFiles.selfie) {
+                alert('Please upload a selfie with ID.');
+                return;
+            }
+            
+            console.log('All validations passed, preparing to send to server...');
             
             // Show loading
             loadingDiv.style.display = 'block';
@@ -814,37 +929,54 @@
                 
                 // Add optional files if they exist
                 if (uploadedFiles.payslip) {
+                    console.log('Adding payslip file:', uploadedFiles.payslip.name);
                     formData.append('payslip_file', uploadedFiles.payslip.file);
                 }
                 
                 if (uploadedFiles.companyId) {
+                    console.log('Adding company ID file:', uploadedFiles.companyId.name);
                     formData.append('company_id_file', uploadedFiles.companyId.file);
+                } else {
+                    console.log('No company ID file uploaded');
                 }
                 
+                // Log FormData contents (for debugging)
+                console.log('FormData created with:', {
+                    id_type: idTypeSelect.value,
+                    has_id_file: !!uploadedFiles.id,
+                    has_selfie_file: !!uploadedFiles.selfie,
+                    has_payslip_file: !!uploadedFiles.payslip,
+                    has_company_id_file: !!uploadedFiles.companyId
+                });
+                
                 // Send to backend
+                console.log('Sending request to /verify endpoint...');
                 const response = await fetch('/verify', {
                     method: 'POST',
                     body: formData
                 });
                 
+                console.log('Response received:', response.status);
                 const result = await response.json();
+                console.log('Verification result:', result);
                 
                 // Display results
                 displayVerificationResult(result);
                 
             } catch (error) {
                 console.error('Verification error:', error);
-                displayError('Failed to verify documents. Please try again.');
+                displayError('Failed to verify documents. Please check console for details and try again.');
             } finally {
                 // Hide loading
                 loadingDiv.style.display = 'none';
                 verifyBtn.disabled = false;
-                verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Documents';
+                updateVerificationButton();
             }
         }
         
         // Display verification result
         function displayVerificationResult(result) {
+            console.log('Displaying verification result:', result);
             verificationResult.style.display = 'block';
             
             if (result.success) {
@@ -917,6 +1049,31 @@
                     verificationStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Verification Failed`;
                 }
                 
+                // Show optional files status
+                if (result.optional_files) {
+                    const optionalDiv = document.createElement('div');
+                    optionalDiv.style.marginTop = '20px';
+                    optionalDiv.style.paddingTop = '20px';
+                    optionalDiv.style.borderTop = '1px solid #eee';
+                    
+                    const optionalTitle = document.createElement('h4');
+                    optionalTitle.textContent = 'Optional Documents Status';
+                    optionalTitle.style.marginBottom = '10px';
+                    optionalDiv.appendChild(optionalTitle);
+                    
+                    for (const [key, fileInfo] of Object.entries(result.optional_files)) {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'detail-item';
+                        fileItem.innerHTML = `
+                            <span>${formatKey(key)}</span>
+                            <span style="color: #27ae60; font-weight: 600;">✓ Uploaded</span>
+                        `;
+                        optionalDiv.appendChild(fileItem);
+                    }
+                    
+                    detailsDiv.appendChild(optionalDiv);
+                }
+                
             } else {
                 // Error case
                 verificationResult.className = 'verification-result';
@@ -946,6 +1103,8 @@
         // Reset all
         function resetAll() {
             if (confirm('Are you sure you want to reset all uploaded documents?')) {
+                console.log('Resetting all documents...');
+                
                 // Clear file inputs
                 idFileInput.value = '';
                 selfieFileInput.value = '';
@@ -976,6 +1135,8 @@
                 
                 // Update button state
                 updateVerificationButton();
+                
+                console.log('Reset complete');
             }
         }
         
@@ -996,6 +1157,14 @@
         
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', initialize);
+        
+        // Debug helper: log all elements
+        console.log('Page loaded, checking elements...');
+        setTimeout(() => {
+            console.log('Company ID file input exists:', !!document.getElementById('company-id-file'));
+            console.log('Company ID upload area exists:', !!document.getElementById('company-id-upload-area'));
+            console.log('Company ID preview exists:', !!document.getElementById('company-id-preview'));
+        }, 1000);
     </script>
 </body>
 </html>

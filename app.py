@@ -1,4 +1,3 @@
-# app.py - Python backend only
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -24,11 +23,16 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 # Ensure upload directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Set Tesseract path
+# Set Tesseract path (update this path based on your system)
 try:
+    # For Windows
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 except:
-    pass  # Use system PATH if not set
+    try:
+        # For Linux/Mac
+        pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+    except:
+        pass  # Use system PATH if not set
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -142,7 +146,8 @@ def verify_primary_id(id_path, id_type, selfie_path):
                 else:
                     verification['issues'].append('Could not convert PDF to image')
                     return verification
-            except:
+            except Exception as e:
+                print(f"PDF conversion error: {e}")
                 verification['issues'].append('PDF conversion failed')
                 return verification
         else:
@@ -220,7 +225,15 @@ def verify_primary_id(id_path, id_type, selfie_path):
             if tampering_score > 50:
                 verification['issues'].append('High tampering risk detected')
         
+        # Clean up temporary image file
+        if id_path.lower().endswith('.pdf') and os.path.exists(id_image_path):
+            try:
+                os.remove(id_image_path)
+            except:
+                pass
+                
     except Exception as e:
+        print(f"Verification error: {str(e)}")
         verification['issues'].append(f'Verification error: {str(e)}')
         verification['confidence'] = 0
     
@@ -252,7 +265,8 @@ def check_image_quality(image):
         quality_score = (sharpness_score * 0.5 + contrast_score * 0.3 + brightness_score * 0.2)
         
         return round(quality_score)
-    except:
+    except Exception as e:
+        print(f"Image quality check error: {e}")
         return 50  # Default average score
 
 def detect_faces(image):
@@ -295,7 +309,8 @@ def extract_and_validate_text(image_path, id_type):
                     text = pytesseract.image_to_string(images[0])
                 else:
                     return result
-            except:
+            except Exception as e:
+                print(f"PDF OCR error: {e}")
                 return result
         else:
             try:
@@ -308,7 +323,8 @@ def extract_and_validate_text(image_path, id_type):
                 enhanced = enhancer.enhance(2.0)
                 
                 text = pytesseract.image_to_string(enhanced)
-            except:
+            except Exception as e:
+                print(f"Image OCR error: {e}")
                 return result
         
         result['extracted_text'] = text
@@ -381,7 +397,8 @@ def check_basic_tampering(image):
         
         return min(100, score)
         
-    except:
+    except Exception as e:
+        print(f"Tampering check error: {e}")
         return 50  # Default medium risk
 
 def process_optional_document(file_path, doc_type):
@@ -410,8 +427,8 @@ def process_optional_document(file_path, doc_type):
                             result['keywords_found'] = found
             else:
                 result['is_image'] = True
-        except:
-            pass
+        except Exception as e:
+            print(f"Payslip processing error: {e}")
     
     return result
 
@@ -447,6 +464,33 @@ if __name__ == '__main__':
         print("✓ Found index.html")
     else:
         print("✗ Missing index.html - Please create index.html file")
+    
+    print("\nChecking dependencies...")
+    
+    # Check for required libraries
+    try:
+        import cv2
+        print("✓ OpenCV installed")
+    except:
+        print("✗ OpenCV not installed. Install with: pip install opencv-python")
+    
+    try:
+        import pytesseract
+        print("✓ Tesseract installed")
+    except:
+        print("✗ Tesseract not installed. Install with: pip install pytesseract")
+    
+    try:
+        import PyPDF2
+        print("✓ PyPDF2 installed")
+    except:
+        print("✗ PyPDF2 not installed. Install with: pip install PyPDF2")
+    
+    try:
+        from pdf2image import convert_from_path
+        print("✓ pdf2image installed")
+    except:
+        print("✗ pdf2image not installed. Install with: pip install pdf2image")
     
     print("\nStarting server...")
     print("Open: http://localhost:5000")
