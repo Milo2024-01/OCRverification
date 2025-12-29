@@ -11,13 +11,14 @@ import pytesseract
 import PyPDF2
 from pdf2image import convert_from_path
 import re
+import json
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'txt', 'doc', 'docx'}  # Added more extensions
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 # Ensure upload directory exists
@@ -36,6 +37,37 @@ except:
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_file_by_type(file_obj, allowed_types):
+    """Check if file type is allowed"""
+    if file_obj.filename == '':
+        return False
+    
+    file_ext = file_obj.filename.rsplit('.', 1)[1].lower() if '.' in file_obj.filename else ''
+    
+    # SPECIAL CASE: Always allow Company ID regardless of type
+    # We'll handle this in the calling function
+    
+    # Check MIME type
+    file_mime = file_obj.mimetype.lower()
+    if file_mime in allowed_types:
+        return True
+    
+    # Check file extension as fallback
+    ext_to_mime = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'pdf': 'application/pdf',
+        'txt': 'text/plain',
+        'doc': 'application/msword',
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    }
+    
+    if file_ext in ext_to_mime and ext_to_mime[file_ext] in allowed_types:
+        return True
+    
+    return False
 
 @app.route('/')
 def index():
@@ -56,52 +88,116 @@ def index():
 
 @app.route('/verify', methods=['POST'])
 def verify_documents():
-    """Main verification endpoint"""
+    """Main verification endpoint with enhanced validation"""
     try:
         # Get form data
         id_type = request.form.get('id_type', '')
         if not id_type:
             return jsonify({'success': False, 'message': 'ID type is required'}), 400
         
-        # Check required files
-        if 'id_file' not in request.files or 'selfie_file' not in request.files:
-            return jsonify({'success': False, 'message': 'ID and Selfie files are required'}), 400
+        # Check all required files
+        required_files = ['id_file', 'selfie_file', 'payslip_file', 'company_id_file']
+        missing_files = []
         
+        for file_field in required_files:
+            if file_field not in request.files:
+                missing_files.append(file_field.replace('_file', '').replace('_', ' '))
+            elif request.files[file_field].filename == '':
+                missing_files.append(file_field.replace('_file', '').replace('_', ' '))
+        
+        if missing_files:
+            return jsonify({
+                'success': False, 
+                'message': f'Missing required files: {", ".join(missing_files)}'
+            }), 400
+        
+        # Get all files
         id_file = request.files['id_file']
         selfie_file = request.files['selfie_file']
+        payslip_file = request.files['payslip_file']
+        company_id_file = request.files['company_id_file']
         
-        # Validate files
-        if id_file.filename == '' or selfie_file.filename == '':
-            return jsonify({'success': False, 'message': 'No selected file'}), 400
+        # Validate file types (EXCEPT FOR COMPANY ID)
+        files_to_validate = [
+            ('Primary ID', id_file, ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']),
+            ('Selfie', selfie_file, ['image/jpeg', 'image/png', 'image/jpg']),
+            ('Payslip', payslip_file, ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']),
+            # Company ID - NO VALIDATION, accept any file type
+        ]
         
-        if not (allowed_file(id_file.filename) and allowed_file(selfie_file.filename)):
-            return jsonify({'success': False, 'message': 'File type not allowed'}), 400
+        invalid_files = []
+        for file_name, file_obj, allowed_types in files_to_validate:
+            if file_name != 'Company ID' and not allowed_file_by_type(file_obj, allowed_types):
+                invalid_files.append(f'{file_name} (invalid file type)')
+        
+        if invalid_files:
+            return jsonify({
+                'success': False, 
+                'message': f'Invalid file types: {", ".join(invalid_files)}'
+            }), 400
+        
+        # Check file sizes (EXCEPT FOR COMPANY ID)
+        files_to_check_size = [
+            ('Primary ID', id_file),
+            ('Selfie', selfie_file),
+            ('Payslip', payslip_file),
+            # Company ID - NO SIZE LIMIT
+        ]
+        
+        oversized_files = []
+        for file_name, file_obj in files_to_check_size:
+            # Get file size by seeking to end
+            file_obj.seek(0, 2)  # Seek to end of file
+            file_size = file_obj.tell()
+            file_obj.seek(0)  # Reset file pointer
+            
+            if file_size > MAX_FILE_SIZE:
+                oversized_files.append(f'{file_name} ({file_size/1024/1024:.1f}MB > 5MB)')
+        
+        if oversized_files:
+            return jsonify({
+                'success': False, 
+                'message': f'Files exceed 5MB limit: {", ".join(oversized_files)}'
+            }), 400
         
         # Create temporary directory for processing
         with tempfile.TemporaryDirectory() as temp_dir:
             # Save files temporarily
             id_path = os.path.join(temp_dir, secure_filename(id_file.filename))
             selfie_path = os.path.join(temp_dir, secure_filename(selfie_file.filename))
+            payslip_path = os.path.join(temp_dir, secure_filename(payslip_file.filename))
+            company_id_path = os.path.join(temp_dir, secure_filename(company_id_file.filename))
             
             id_file.save(id_path)
             selfie_file.save(selfie_path)
+            payslip_file.save(payslip_path)
+            company_id_file.save(company_id_path)
+            
+            # Validate document contents
+            validation_results = {
+                'id': validate_id_document(id_path, id_type),
+                'selfie': validate_selfie_document(selfie_path),
+                'payslip': validate_payslip_document(payslip_path),
+                'company_id': validate_company_id_document(company_id_path)  # SIMPLIFIED
+            }
+            
+            # Check if any validation failed (except company_id)
+            validation_errors = []
+            for doc_type, result in validation_results.items():
+                if doc_type != 'company_id' and not result['is_valid']:
+                    doc_name = doc_type.replace('_', ' ').title()
+                    validation_errors.append(f"{doc_name}: {result['message']}")
+            
+            if validation_errors:
+                return jsonify({
+                    'success': False,
+                    'message': 'Document validation failed',
+                    'validation_errors': validation_errors,
+                    'validation_details': validation_results
+                }), 400
             
             # Verify Primary ID
             id_verification = verify_primary_id(id_path, id_type, selfie_path)
-            
-            # Handle optional files
-            optional_files = {}
-            if 'payslip_file' in request.files and request.files['payslip_file'].filename:
-                payslip_file = request.files['payslip_file']
-                payslip_path = os.path.join(temp_dir, secure_filename(payslip_file.filename))
-                payslip_file.save(payslip_path)
-                optional_files['payslip'] = process_optional_document(payslip_path, 'payslip')
-            
-            if 'company_id_file' in request.files and request.files['company_id_file'].filename:
-                company_file = request.files['company_id_file']
-                company_path = os.path.join(temp_dir, secure_filename(company_file.filename))
-                company_file.save(company_path)
-                optional_files['company_id'] = process_optional_document(company_path, 'company_id')
             
             # Prepare response
             response = {
@@ -109,8 +205,11 @@ def verify_documents():
                 'timestamp': datetime.now().isoformat(),
                 'id_type': id_type,
                 'id_verification': id_verification,
-                'optional_files': optional_files,
-                'message': 'Verification completed successfully'
+                'validation_summary': {
+                    'all_documents_valid': True,
+                    'details': validation_results
+                },
+                'message': 'All documents validated and verification completed successfully'
             }
             
             return jsonify(response)
@@ -121,6 +220,265 @@ def verify_documents():
             'success': False,
             'message': f'Internal server error: {str(e)}'
         }), 500
+
+def validate_id_document(file_path, id_type):
+    """Validate ID document content"""
+    result = {
+        'is_valid': False,
+        'message': '',
+        'keywords_found': [],
+        'text_extracted': False,
+        'file_type': os.path.splitext(file_path)[1].lower()
+    }
+    
+    try:
+        # Extract text from document
+        text_data = extract_and_validate_text(file_path, id_type)
+        
+        if not text_data['has_text']:
+            result['message'] = 'No readable text found in ID document'
+            return result
+        
+        result['text_extracted'] = True
+        result['keywords_found'] = text_data['keywords_found']
+        
+        # ID type specific validation
+        if id_type == 'passport':
+            required_keywords = ['passport', 'government', 'republic', 'international', 'visa']
+            if any(keyword in text_data['extracted_text'].lower() for keyword in required_keywords):
+                result['is_valid'] = True
+                result['message'] = 'Valid passport document detected'
+            else:
+                result['message'] = 'Document does not appear to be a valid passport'
+        
+        elif id_type == 'driver_license':
+            required_keywords = ['driver', 'license', 'licence', 'permit', 'dl', 'driving']
+            if any(keyword in text_data['extracted_text'].lower() for keyword in required_keywords):
+                result['is_valid'] = True
+                result['message'] = 'Valid driver license document detected'
+            else:
+                result['message'] = 'Document does not appear to be a valid driver license'
+        
+        elif id_type == 'national_id':
+            required_keywords = ['national', 'identity', 'id', 'card', 'identification', 'citizen']
+            if any(keyword in text_data['extracted_text'].lower() for keyword in required_keywords):
+                result['is_valid'] = True
+                result['message'] = 'Valid national ID document detected'
+            else:
+                result['message'] = 'Document does not appear to be a valid national ID'
+        
+        if not result['is_valid'] and result['message'] == '':
+            result['message'] = f'Document does not appear to be a valid {id_type.replace("_", " ")}'
+            
+    except Exception as e:
+        print(f"ID validation error: {str(e)}")
+        result['message'] = f'Error validating ID document: {str(e)}'
+    
+    return result
+
+def validate_selfie_document(file_path):
+    """Validate selfie document"""
+    result = {
+        'is_valid': False,
+        'message': '',
+        'file_type': os.path.splitext(file_path)[1].lower()
+    }
+    
+    try:
+        # Check if it's an image file
+        if not file_path.lower().endswith(('.jpg', '.jpeg', '.png')):
+            result['message'] = 'Selfie must be an image file (JPG, PNG)'
+            return result
+        
+        # Try to open and check the image
+        img = cv2.imread(file_path)
+        if img is None:
+            result['message'] = 'Cannot read image file. File may be corrupted.'
+            return result
+        
+        # Check image dimensions
+        height, width = img.shape[:2]
+        if height < 100 or width < 100:
+            result['message'] = f'Image too small ({width}x{height}). Please upload a clearer image.'
+            return result
+        
+        # Check for faces (basic validation)
+        faces = detect_faces(img)
+        if len(faces) == 0:
+            result['message'] = 'No face detected in selfie. Please ensure your face is clearly visible.'
+            return result
+        
+        result['is_valid'] = True
+        result['message'] = f'Valid selfie detected ({len(faces)} face(s) found)'
+        result['image_dimensions'] = f'{width}x{height}'
+        
+    except Exception as e:
+        print(f"Selfie validation error: {str(e)}")
+        result['message'] = f'Error validating selfie: {str(e)}'
+    
+    return result
+
+def validate_payslip_document(file_path):
+    """Validate payslip document content"""
+    result = {
+        'is_valid': False,
+        'message': '',
+        'keywords_found': [],
+        'file_type': os.path.splitext(file_path)[1].lower(),
+        'validation_score': 0
+    }
+    
+    try:
+        # Extract text from document
+        text = ''
+        if file_path.lower().endswith('.pdf'):
+            try:
+                images = convert_from_path(file_path)
+                if images:
+                    text = pytesseract.image_to_string(images[0])
+                    result['page_count'] = len(images)
+                else:
+                    result['message'] = 'Could not extract text from PDF'
+                    return result
+            except Exception as e:
+                result['message'] = f'Error processing PDF: {str(e)}'
+                return result
+        else:
+            try:
+                image = Image.open(file_path)
+                enhancer = ImageEnhance.Contrast(image)
+                enhanced = enhancer.enhance(2.0)
+                enhancer = ImageEnhance.Sharpness(enhanced)
+                enhanced = enhancer.enhance(2.0)
+                text = pytesseract.image_to_string(enhanced)
+            except Exception as e:
+                result['message'] = f'Error processing image: {str(e)}'
+                return result
+        
+        text_lower = text.lower()
+        
+        # Look for payslip keywords
+        payslip_keywords = [
+            'payslip', 'salary', 'employee', 'wage', 'net', 'gross',
+            'period', 'payroll', 'earning', 'deduction', 'tax',
+            'basic', 'allowance', 'overtime', 'bonus', 'commission'
+        ]
+        
+        found_keywords = [kw for kw in payslip_keywords if kw in text_lower]
+        result['keywords_found'] = found_keywords
+        
+        # Check for amount patterns
+        amount_patterns = [
+            r'\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?',  # $1,000.00
+            r'\d{1,3}(?:,\d{3})*(?:\.\d{2})?\s*(?:USD|EUR|GBP)?',  # 1,000.00
+            r'\b\d+(?:\.\d{2})?\b'  # Any number with two decimals
+        ]
+        
+        amount_matches = []
+        for pattern in amount_patterns:
+            matches = re.findall(pattern, text)
+            amount_matches.extend(matches)
+        
+        result['amount_patterns_found'] = len(amount_matches)
+        
+        # Calculate validation score
+        score = (len(found_keywords) * 5) + (len(amount_matches) * 3)
+        result['validation_score'] = score
+        
+        # Determine validation result
+        if score >= 20:  # High confidence
+            result['is_valid'] = True
+            result['message'] = f'Valid payslip detected ({len(found_keywords)} keywords, {len(amount_matches)} amounts)'
+            result['confidence'] = 'high'
+        elif score >= 10:  # Medium confidence
+            result['is_valid'] = True
+            result['message'] = f'Likely payslip detected ({len(found_keywords)} keywords, {len(amount_matches)} amounts)'
+            result['confidence'] = 'medium'
+            result['warning'] = 'Limited payslip features detected'
+        elif text.strip() and len(amount_matches) > 0:  # Low confidence with amounts
+            result['is_valid'] = True
+            result['message'] = f'Possible payslip ({len(amount_matches)} amounts found)'
+            result['confidence'] = 'low'
+            result['warning'] = 'Very few payslip keywords but amounts detected'
+        elif text.strip():
+            result['message'] = 'Document may not be a payslip (insufficient payslip keywords or amounts)'
+        else:
+            result['message'] = 'No readable text found in document'
+            
+    except Exception as e:
+        print(f"Payslip validation error: {str(e)}")
+        result['message'] = f'Error validating payslip: {str(e)}'
+    
+    return result
+
+def validate_company_id_document(file_path):
+    """Validate company ID document content - ALWAYS ACCEPT"""
+    result = {
+        'is_valid': True,  # ALWAYS VALID
+        'message': 'Company ID uploaded successfully',
+        'keywords_found': [],
+        'file_type': os.path.splitext(file_path)[1].lower(),
+        'note': 'Unrestricted validation - accepts any file type'
+    }
+    
+    try:
+        # Get file info
+        file_size = os.path.getsize(file_path)
+        result['file_size'] = f"{file_size} bytes"
+        
+        # Try to extract text if it's a text-based file
+        if file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.pdf', '.txt')):
+            try:
+                if file_path.lower().endswith('.pdf'):
+                    images = convert_from_path(file_path)
+                    if images:
+                        text = pytesseract.image_to_string(images[0])
+                    else:
+                        text = ''
+                elif file_path.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    image = Image.open(file_path)
+                    enhancer = ImageEnhance.Contrast(image)
+                    enhanced = enhancer.enhance(2.0)
+                    enhancer = ImageEnhance.Sharpness(enhanced)
+                    enhanced = enhancer.enhance(2.0)
+                    text = pytesseract.image_to_string(enhanced)
+                elif file_path.lower().endswith('.txt'):
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        text = f.read()
+                else:
+                    text = ''
+                
+                text_lower = text.lower()
+                
+                # Look for company ID keywords (info only)
+                company_id_keywords = [
+                    'company', 'corporate', 'employee', 'staff', 'personnel',
+                    'id', 'identification', 'card', 'badge', 'member',
+                    'employer', 'organization', 'business', 'enterprise'
+                ]
+                
+                found_keywords = [kw for kw in company_id_keywords if kw in text_lower]
+                result['keywords_found'] = found_keywords
+                
+                # Update message if keywords found
+                if found_keywords:
+                    result['message'] = f'Company ID detected ({len(found_keywords)} keywords found)'
+                
+            except Exception as e:
+                # If extraction fails, still accept
+                print(f"Company ID content extraction warning: {str(e)}")
+                result['note'] = 'File accepted (content extraction skipped)'
+        
+        else:
+            # For other file types, just accept them
+            result['note'] = 'Non-text file accepted'
+            
+    except Exception as e:
+        # Even on major error, still accept
+        print(f"Company ID validation warning: {str(e)}")
+        result['note'] = f'Accepted with warning: {str(e)}'
+    
+    return result
 
 def verify_primary_id(id_path, id_type, selfie_path):
     """Verify the primary ID document"""
@@ -187,6 +545,7 @@ def verify_primary_id(id_path, id_type, selfie_path):
         text_data = extract_and_validate_text(id_image_path, id_type)
         verification['analysis']['text_extracted'] = 'Yes' if text_data['has_text'] else 'No'
         verification['analysis']['id_pattern_match'] = text_data['pattern_match']
+        verification['analysis']['keywords_found'] = len(text_data['keywords_found'])
         checks.append(('Text Extraction', text_data['has_text'], 80 if text_data['has_text'] else 0))
         checks.append(('ID Pattern', text_data['pattern_match'], 90 if text_data['pattern_match'] else 30))
         
@@ -201,6 +560,11 @@ def verify_primary_id(id_path, id_type, selfie_path):
         verification['analysis']['tampering_risk'] = f"{tampering_score}%"
         checks.append(('Tampering Risk', tampering_score < 50, 100 - tampering_score))
         
+        # 7. Color Consistency Check
+        color_score = check_color_consistency(id_img)
+        verification['analysis']['color_consistency'] = f"{color_score}/100"
+        checks.append(('Color Consistency', color_score > 60, color_score))
+        
         # Calculate overall confidence
         total_score = sum(score for _, _, score in checks)
         confidence = total_score / (len(checks) * 100) * 100
@@ -214,7 +578,8 @@ def verify_primary_id(id_path, id_type, selfie_path):
             'Image Quality Analysis',
             'Face Detection',
             'Text Extraction & Pattern Matching',
-            'Basic Tampering Detection'
+            'Basic Tampering Detection',
+            'Color Consistency Check'
         ]
         
         # Log issues if confidence is low
@@ -224,6 +589,8 @@ def verify_primary_id(id_path, id_type, selfie_path):
                 verification['issues'].append('No readable text found in ID')
             if tampering_score > 50:
                 verification['issues'].append('High tampering risk detected')
+            if quality_score < 50:
+                verification['issues'].append('Poor image quality')
         
         # Clean up temporary image file
         if id_path.lower().endswith('.pdf') and os.path.exists(id_image_path):
@@ -257,35 +624,34 @@ def check_image_quality(image):
         # Calculate brightness
         brightness = gray.mean()
         
+        # Calculate noise level
+        noise = cv2.Laplacian(gray, cv2.CV_64F).std()
+        
         # Combined quality score (0-100)
         sharpness_score = min(100, laplacian_var / 10)
         contrast_score = min(100, contrast / 2)
         brightness_score = 100 - abs(brightness - 127) / 127 * 100
+        noise_score = max(0, 100 - noise * 10)
         
-        quality_score = (sharpness_score * 0.5 + contrast_score * 0.3 + brightness_score * 0.2)
+        quality_score = (sharpness_score * 0.3 + contrast_score * 0.3 + 
+                        brightness_score * 0.2 + noise_score * 0.2)
         
-        return round(quality_score)
+        return round(max(0, min(100, quality_score)))
     except Exception as e:
         print(f"Image quality check error: {e}")
-        return 50  # Default average score
+        return 50
 
 def detect_faces(image):
     """Detect faces in an image using OpenCV"""
     try:
-        # Load face cascade
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        
-        # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Detect faces
         faces = face_cascade.detectMultiScale(
             gray,
             scaleFactor=1.1,
             minNeighbors=5,
             minSize=(30, 30)
         )
-        
         return faces
     except Exception as e:
         print(f"Face detection error: {e}")
@@ -315,13 +681,10 @@ def extract_and_validate_text(image_path, id_type):
         else:
             try:
                 image = Image.open(image_path)
-                
-                # Enhance image for better OCR
                 enhancer = ImageEnhance.Contrast(image)
                 enhanced = enhancer.enhance(2.0)
                 enhancer = ImageEnhance.Sharpness(enhanced)
                 enhanced = enhancer.enhance(2.0)
-                
                 text = pytesseract.image_to_string(enhanced)
             except Exception as e:
                 print(f"Image OCR error: {e}")
@@ -335,17 +698,17 @@ def extract_and_validate_text(image_path, id_type):
         keywords = []
         
         if id_type == 'passport':
-            keywords = ['passport', 'republic', 'government', 'number', 'date', 'expiry']
+            keywords = ['passport', 'republic', 'government', 'number', 'date', 'expiry', 'international']
             if re.search(r'\b[A-Z]{1,2}\d{6,8}\b', text.upper()):
                 result['pattern_match'] = True
         
         elif id_type == 'driver_license':
-            keywords = ['driver', 'license', 'licence', 'dl', 'permit', 'expires']
+            keywords = ['driver', 'license', 'licence', 'dl', 'permit', 'expires', 'expiry', 'driving']
             if re.search(r'\b[A-Z]{1,2}\d{6,9}\b', text.upper()):
                 result['pattern_match'] = True
         
         elif id_type == 'national_id':
-            keywords = ['national', 'identity', 'id', 'card', 'number', 'republic']
+            keywords = ['national', 'identity', 'id', 'card', 'number', 'republic', 'citizen']
             if re.search(r'\b\d{9,12}\b', text):
                 result['pattern_match'] = True
         
@@ -370,7 +733,6 @@ def check_basic_tampering(image):
         # Check for unnatural edges
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 100, 200)
-        
         edge_density = np.sum(edges > 0) / edges.size
         
         if edge_density < 0.01 or edge_density > 0.5:
@@ -399,38 +761,21 @@ def check_basic_tampering(image):
         
     except Exception as e:
         print(f"Tampering check error: {e}")
-        return 50  # Default medium risk
+        return 50
 
-def process_optional_document(file_path, doc_type):
-    """Process optional documents (payslip, company ID)"""
-    result = {
-        'type': doc_type,
-        'uploaded': True,
-        'file_name': os.path.basename(file_path),
-        'file_size': os.path.getsize(file_path),
-        'verification_notes': 'This document type is not verified for authenticity'
-    }
-    
-    if doc_type == 'payslip':
-        try:
-            if file_path.lower().endswith('.pdf'):
-                with open(file_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    result['page_count'] = len(pdf_reader.pages)
-                    
-                    if pdf_reader.pages:
-                        text = pdf_reader.pages[0].extract_text()
-                        result['has_text'] = len(text.strip()) > 0
-                        if text:
-                            keywords = ['salary', 'payslip', 'employee', 'period', 'net', 'gross']
-                            found = [kw for kw in keywords if kw in text.lower()]
-                            result['keywords_found'] = found
-            else:
-                result['is_image'] = True
-        except Exception as e:
-            print(f"Payslip processing error: {e}")
-    
-    return result
+def check_color_consistency(image):
+    """Check color consistency across the image"""
+    try:
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        l_std = np.std(lab[:,:,0])
+        a_std = np.std(lab[:,:,1])
+        b_std = np.std(lab[:,:,2])
+        avg_std = (l_std + a_std + b_std) / 3
+        score = max(0, 100 - avg_std * 2)
+        return round(score)
+    except Exception as e:
+        print(f"Color consistency check error: {e}")
+        return 50
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -438,7 +783,16 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'service': 'Document Verification API'
+        'service': 'Document Verification API',
+        'version': '2.2.0',
+        'features': [
+            'Strict ID validation',
+            'Strict selfie validation',
+            'Strict payslip validation',
+            'UNRESTRICTED Company ID validation',
+            'Face detection',
+            'OCR text extraction'
+        ]
     })
 
 @app.route('/test', methods=['GET'])
@@ -446,6 +800,7 @@ def test_endpoint():
     """Test endpoint"""
     return jsonify({
         'message': 'Document Verification API is running',
+        'timestamp': datetime.now().isoformat(),
         'endpoints': {
             'GET /': 'Frontend',
             'POST /verify': 'Verify documents',
@@ -456,47 +811,54 @@ def test_endpoint():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("Document Verification System")
+    print("Document Verification System v2.2")
+    print("=" * 60)
+    print("Features:")
+    print("✓ Strict Primary ID validation")
+    print("✓ Strict Selfie validation (face detection)")
+    print("✓ Strict Payslip validation (keywords & amounts)")
+    print("✓ UNRESTRICTED Company ID validation (accepts ANY file)")
+    print("✓ OCR text extraction")
+    print("✓ Face detection")
     print("=" * 60)
     
-    # Check for index.html
     if os.path.exists('index.html'):
         print("✓ Found index.html")
     else:
-        print("✗ Missing index.html - Please create index.html file")
+        print("✗ Missing index.html")
     
     print("\nChecking dependencies...")
     
-    # Check for required libraries
-    try:
-        import cv2
-        print("✓ OpenCV installed")
-    except:
-        print("✗ OpenCV not installed. Install with: pip install opencv-python")
+    dependencies = [
+        ('OpenCV', 'cv2'),
+        ('Tesseract OCR', 'pytesseract'),
+        ('PyPDF2', 'PyPDF2'),
+        ('pdf2image', 'pdf2image'),
+        ('NumPy', 'numpy'),
+        ('Pillow', 'PIL')
+    ]
     
-    try:
-        import pytesseract
-        print("✓ Tesseract installed")
-    except:
-        print("✗ Tesseract not installed. Install with: pip install pytesseract")
+    all_deps_ok = True
+    for dep_name, dep_module in dependencies:
+        try:
+            __import__(dep_module.split('.')[0])
+            print(f"✓ {dep_name} installed")
+        except ImportError:
+            print(f"✗ {dep_name} not installed")
+            all_deps_ok = False
     
-    try:
-        import PyPDF2
-        print("✓ PyPDF2 installed")
-    except:
-        print("✗ PyPDF2 not installed. Install with: pip install PyPDF2")
-    
-    try:
-        from pdf2image import convert_from_path
-        print("✓ pdf2image installed")
-    except:
-        print("✗ pdf2image not installed. Install with: pip install pdf2image")
+    if not all_deps_ok:
+        print("\nMissing dependencies. Install with:")
+        print("pip install flask flask-cors opencv-python pillow pytesseract PyPDF2 pdf2image numpy")
     
     print("\nStarting server...")
     print("Open: http://localhost:5000")
-    print("Press Ctrl+C to stop\n")
+    print("API Endpoints:")
+    print("  GET  /                 - Frontend application")
+    print("  POST /verify           - Verify all documents")
+    print("  GET  /health          - Health check")
+    print("  GET  /test            - Test endpoint")
+    print("\nPress Ctrl+C to stop\n")
     
-    # Create necessary directories
     os.makedirs('uploads', exist_ok=True)
-    
     app.run(debug=True, host='0.0.0.0', port=5000)

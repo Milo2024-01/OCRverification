@@ -99,12 +99,27 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
             border: 2px solid #e9ecef;
             transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .document-card.warning {
+            border-color: #f39c12;
+            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.2);
+        }
+        
+        .document-card.error {
+            border-color: #e74c3c;
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.2);
+        }
+        
+        .document-card.validated {
+            border-color: #27ae60;
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.2);
         }
         
         .document-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            border-color: #4a6fa5;
         }
         
         .card-header {
@@ -228,6 +243,41 @@
             border: 2px dashed #dee2e6;
         }
         
+        .validation-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .validation-status.warning {
+            background: #fef5e7;
+            color: #b06d0e;
+            border: 1px solid #f8c471;
+            display: flex;
+        }
+        
+        .validation-status.error {
+            background: #fdedec;
+            color: #c0392b;
+            border: 1px solid #f1948a;
+            display: flex;
+        }
+        
+        .validation-status.success {
+            background: #e8f6ef;
+            color: #27ae60;
+            border: 1px solid #82e0aa;
+            display: flex;
+        }
+        
+        .validation-status i {
+            font-size: 14px;
+        }
+        
         .verification-section {
             background: #f8f9fa;
             border-radius: 15px;
@@ -309,6 +359,10 @@
             box-shadow: 0 7px 20px rgba(42, 108, 175, 0.3);
         }
         
+        .btn-primary.enabled {
+            background: linear-gradient(to right, #27ae60, #2ecc71);
+        }
+        
         .btn-secondary {
             background: #ecf0f1;
             color: #2c3e50;
@@ -375,6 +429,16 @@
             color: #721c24;
         }
         
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
         footer {
             text-align: center;
             padding: 20px;
@@ -418,7 +482,7 @@
                 
                 <div class="document-grid">
                     <!-- Primary ID Card -->
-                    <div class="document-card">
+                    <div class="document-card" id="id-card">
                         <div class="card-header">
                             <div class="document-icon">
                                 <i class="fas fa-id-card"></i>
@@ -449,10 +513,12 @@
                         <div class="preview-container" id="id-preview">
                             <div class="preview-placeholder">No ID uploaded yet</div>
                         </div>
+                        
+                        <div class="validation-status" id="id-validation"></div>
                     </div>
                     
                     <!-- Selfie with ID Card -->
-                    <div class="document-card">
+                    <div class="document-card" id="selfie-card">
                         <div class="card-header">
                             <div class="document-icon">
                                 <i class="fas fa-user-check"></i>
@@ -476,10 +542,12 @@
                         <div class="preview-container" id="selfie-preview">
                             <div class="preview-placeholder">No selfie uploaded yet</div>
                         </div>
+                        
+                        <div class="validation-status" id="selfie-validation"></div>
                     </div>
                     
                     <!-- Payslip Card -->
-                    <div class="document-card">
+                    <div class="document-card" id="payslip-card">
                         <div class="card-header">
                             <div class="document-icon">
                                 <i class="fas fa-file-invoice-dollar"></i>
@@ -490,7 +558,7 @@
                         <h3 class="document-name">Latest Payslip</h3>
                         <p class="document-description">
                             Upload your most recent payslip for employment verification.
-                            This document will not be verified for authenticity.
+                            Must contain "payslip", "salary", or "employee" text.
                         </p>
                         
                         <div class="file-upload-area" id="payslip-upload-area">
@@ -503,10 +571,12 @@
                         <div class="preview-container" id="payslip-preview">
                             <div class="preview-placeholder">No payslip uploaded yet</div>
                         </div>
+                        
+                        <div class="validation-status" id="payslip-validation"></div>
                     </div>
                     
                     <!-- Company ID Card -->
-                    <div class="document-card">
+                    <div class="document-card" id="company-id-card">
                         <div class="card-header">
                             <div class="document-icon">
                                 <i class="fas fa-briefcase"></i>
@@ -517,19 +587,22 @@
                         <h3 class="document-name">Company ID</h3>
                         <p class="document-description">
                             Upload a clear image of your company ID card.
-                            This document will not be verified for authenticity.
+                            Any image file will be accepted.
                         </p>
                         
                         <div class="file-upload-area" id="company-id-upload-area">
                             <i class="fas fa-id-badge upload-icon"></i>
                             <div class="upload-text">Click to upload company ID</div>
-                            <div class="upload-hint">Supports: JPG, PNG (Max 5MB)</div>
-                            <input type="file" id="company-id-file" class="file-input" accept="image/*">
+                            <!-- CHANGED: Removed restrictions -->
+                            <div class="upload-hint">Any file type accepted</div>
+                            <input type="file" id="company-id-file" class="file-input" accept="*/*">
                         </div>
                         
                         <div class="preview-container" id="company-id-preview">
                             <div class="preview-placeholder">No company ID uploaded yet</div>
                         </div>
+                        
+                        <div class="validation-status" id="company-id-validation"></div>
                     </div>
                 </div>
             </div>
@@ -543,7 +616,7 @@
                 
                 <div class="status-indicator status-pending" id="verification-status">
                     <i class="fas fa-clock"></i>
-                    Ready for verification
+                    Upload all 4 required documents and select ID type
                 </div>
                 
                 <div class="verification-result" id="verification-result">
@@ -553,9 +626,7 @@
                     </div>
                     <p id="result-message">Verification results will appear here.</p>
                     
-                    <div class="verification-details" id="result-details">
-                        <!-- Details will be populated by JavaScript -->
-                    </div>
+                    <div class="verification-details" id="result-details"></div>
                 </div>
                 
                 <div class="loading" id="loading">
@@ -568,7 +639,7 @@
                     <button class="btn btn-secondary" id="reset-btn">
                         <i class="fas fa-redo"></i> Reset All
                     </button>
-                    <button class="btn btn-primary" id="verify-btn">
+                    <button class="btn btn-primary" id="verify-btn" disabled>
                         <i class="fas fa-shield-alt"></i> Verify Documents
                     </button>
                 </div>
@@ -578,682 +649,845 @@
         <footer>
             <p>© 2024 Document Verification System | All uploaded documents are encrypted and secure</p>
             <p style="margin-top: 10px; font-size: 12px;">
-                <i class="fas fa-info-circle"></i> Only Primary ID documents undergo authenticity verification
+                <i class="fas fa-info-circle"></i> Primary ID, Selfie, and Payslip undergo strict validation. Company ID has simplified validation.
             </p>
         </footer>
     </div>
 
     <script>
-    // DOM Elements
-    const idFileInput = document.getElementById('id-file');
-    const selfieFileInput = document.getElementById('selfie-file');
-    const payslipFileInput = document.getElementById('payslip-file');
-    const companyIdFileInput = document.getElementById('company-id-file');
-    
-    const uploadAreas = document.querySelectorAll('.file-upload-area');
-    const verifyBtn = document.getElementById('verify-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const loadingDiv = document.getElementById('loading');
-    const verificationResult = document.getElementById('verification-result');
-    const verificationStatus = document.getElementById('verification-status');
-    const idTypeSelect = document.getElementById('id-type');
-    
-    // File upload data
-    const uploadedFiles = {
-        id: null,
-        selfie: null,
-        payslip: null,
-        companyId: null
-    };
-    
-    // Track document completion status
-    const documentStatus = {
-        id: { uploaded: false, required: true },
-        selfie: { uploaded: false, required: true },
-        payslip: { uploaded: false, required: true },
-        companyId: { uploaded: false, required: true }
-    };
-    
-    // Initialize event listeners
-    function initialize() {
-        console.log('Initializing document verification system...');
+        // DOM Elements
+        const idFileInput = document.getElementById('id-file');
+        const selfieFileInput = document.getElementById('selfie-file');
+        const payslipFileInput = document.getElementById('payslip-file');
+        const companyIdFileInput = document.getElementById('company-id-file');
         
-        // ID Type selection
-        idTypeSelect.addEventListener('change', function() {
-            console.log('ID type selected:', this.value);
-            updateVerificationButton();
-            updateVerificationStatus();
-        });
+        const uploadAreas = document.querySelectorAll('.file-upload-area');
+        const verifyBtn = document.getElementById('verify-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const loadingDiv = document.getElementById('loading');
+        const verificationResult = document.getElementById('verification-result');
+        const verificationStatus = document.getElementById('verification-status');
+        const idTypeSelect = document.getElementById('id-type');
         
-        // File input change handlers
-        idFileInput.addEventListener('change', (e) => handleFileUpload(e, 'id'));
-        selfieFileInput.addEventListener('change', (e) => handleFileUpload(e, 'selfie'));
-        payslipFileInput.addEventListener('change', (e) => handleFileUpload(e, 'payslip'));
-        companyIdFileInput.addEventListener('change', (e) => handleFileUpload(e, 'companyId'));
+        // Document cards for styling
+        const idCard = document.getElementById('id-card');
+        const selfieCard = document.getElementById('selfie-card');
+        const payslipCard = document.getElementById('payslip-card');
+        const companyIdCard = document.getElementById('company-id-card');
         
-        // Upload area click handlers
-        document.getElementById('id-upload-area').addEventListener('click', () => {
-            console.log('ID upload area clicked');
-            idFileInput.click();
-        });
-        document.getElementById('selfie-upload-area').addEventListener('click', () => {
-            console.log('Selfie upload area clicked');
-            selfieFileInput.click();
-        });
-        document.getElementById('payslip-upload-area').addEventListener('click', () => {
-            console.log('Payslip upload area clicked');
-            payslipFileInput.click();
-        });
-        document.getElementById('company-id-upload-area').addEventListener('click', () => {
-            console.log('Company ID upload area clicked');
-            companyIdFileInput.click();
-        });
+        // Validation elements
+        const idValidation = document.getElementById('id-validation');
+        const selfieValidation = document.getElementById('selfie-validation');
+        const payslipValidation = document.getElementById('payslip-validation');
+        const companyIdValidation = document.getElementById('company-id-validation');
         
-        // Drag and drop functionality
-        uploadAreas.forEach(area => {
-            area.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                area.classList.add('drag-over');
-            });
-            
-            area.addEventListener('dragleave', () => {
-                area.classList.remove('drag-over');
-            });
-            
-            area.addEventListener('drop', (e) => {
-                e.preventDefault();
-                area.classList.remove('drag-over');
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    const file = files[0];
-                    const areaId = area.id.replace('-upload-area', '');
-                    console.log('File dropped on area:', areaId, 'File:', file.name);
-                    handleDroppedFile(file, areaId);
-                }
-            });
-        });
-        
-        // Verify button
-        verifyBtn.addEventListener('click', verifyDocuments);
-        
-        // Reset button
-        resetBtn.addEventListener('click', resetAll);
-        
-        // Initial update of verification button state
-        updateVerificationButton();
-        updateVerificationStatus();
-        
-        console.log('Initialization complete');
-    }
-    
-    // Handle file upload
-    function handleFileUpload(event, fileType) {
-        const file = event.target.files[0];
-        console.log('File selected for', fileType, ':', file ? file.name : 'No file');
-        if (file) {
-            processFile(file, fileType);
-        }
-    }
-    
-    // Handle dropped file
-    function handleDroppedFile(file, areaId) {
-        console.log('handleDroppedFile called with areaId:', areaId, 'file:', file.name);
-        
-        let fileType;
-        let fileInputId;
-        
-        switch(areaId) {
-            case 'id': 
-                fileType = 'id'; 
-                fileInputId = 'id-file';
-                break;
-            case 'selfie': 
-                fileType = 'selfie'; 
-                fileInputId = 'selfie-file';
-                break;
-            case 'payslip': 
-                fileType = 'payslip'; 
-                fileInputId = 'payslip-file';
-                break;
-            case 'company-id': 
-                fileType = 'companyId'; 
-                fileInputId = 'company-id-file';
-                break;
-            default: 
-                console.log('Unknown area:', areaId);
-                alert('Unknown upload area. Please try clicking the upload area instead.');
-                return;
-        }
-        
-        console.log('Processing file for type:', fileType, 'inputId:', fileInputId);
-        
-        // Process the file
-        processFile(file, fileType);
-        
-        // Update the corresponding file input
-        const fileInput = document.getElementById(fileInputId);
-        if (fileInput) {
-            console.log('Updating file input:', fileInputId);
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
-            
-            // Trigger change event
-            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-        } else {
-            console.error('File input not found:', fileInputId);
-        }
-    }
-    
-    // Process uploaded file
-    function processFile(file, fileType) {
-        console.log('Processing file:', file.name, 'type:', fileType);
-        
-        // Check file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            alert(`File "${file.name}" exceeds 5MB size limit. Please upload a smaller file.`);
-            return;
-        }
-        
-        // Check file type
-        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-        const fileTypeLower = file.type.toLowerCase();
-        if (!validTypes.includes(fileTypeLower)) {
-            alert(`File type "${file.type}" not supported. Please upload JPG, PNG, or PDF files.`);
-            return;
-        }
-        
-        // Store file
-        uploadedFiles[fileType] = {
-            file: file,
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            uploadedAt: new Date()
+        // File upload data with validation status
+        const uploadedFiles = {
+            id: { file: null, validated: false, validationMessage: '' },
+            selfie: { file: null, validated: false, validationMessage: '' },
+            payslip: { file: null, validated: false, validationMessage: '' },
+            companyId: { file: null, validated: false, validationMessage: '' }
         };
         
-        // Update document status
-        documentStatus[fileType].uploaded = true;
-        
-        console.log('File stored for', fileType, ':', uploadedFiles[fileType]);
-        
-        // Show preview
-        showPreview(file, fileType);
-        
-        // Update verification button state
-        updateVerificationButton();
-        
-        // Update status
-        updateVerificationStatus();
-        
-        // Update visual indicator for the uploaded document
-        updateDocumentCardStatus(fileType);
-    }
-    
-    // Show file preview
-    function showPreview(file, fileType) {
-        console.log('Showing preview for', fileType);
-        
-        // Map fileType to preview container ID
-        let previewId;
-        switch(fileType) {
-            case 'id': previewId = 'id-preview'; break;
-            case 'selfie': previewId = 'selfie-preview'; break;
-            case 'payslip': previewId = 'payslip-preview'; break;
-            case 'companyId': previewId = 'company-id-preview'; break;
-            default: 
-                console.error('Unknown file type for preview:', fileType);
-                return;
-        }
-        
-        const previewContainer = document.getElementById(previewId);
-        
-        if (!previewContainer) {
-            console.error(`Preview container not found: ${previewId}`);
-            alert(`Cannot show preview. Container ${previewId} not found.`);
-            return;
-        }
-        
-        console.log('Found preview container:', previewId);
-        
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                console.log('Image loaded, creating preview');
-                previewContainer.innerHTML = `
-                    <img src="${e.target.result}" class="preview-image" alt="${file.name}">
-                    <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                        ${file.name} (${formatFileSize(file.size)})
-                    </div>
-                `;
-            };
-            reader.onerror = function(e) {
-                console.error('Error reading file:', e);
-                previewContainer.innerHTML = `
-                    <div class="preview-placeholder">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <div>Error loading preview</div>
-                        <div style="font-size: 12px;">${file.name}</div>
-                    </div>
-                `;
-            };
-            reader.readAsDataURL(file);
-        } else if (file.type === 'application/pdf') {
-            console.log('PDF file, creating PDF preview');
-            previewContainer.innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <i class="fas fa-file-pdf" style="font-size: 48px; color: #e74c3c;"></i>
-                    <div style="margin-top: 10px; font-weight: 600;">${file.name}</div>
-                    <div style="font-size: 12px; color: #666;">PDF Document (${formatFileSize(file.size)})</div>
-                </div>
-            `;
-        } else {
-            console.log('Other file type, creating generic preview');
-            previewContainer.innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <i class="fas fa-file" style="font-size: 48px; color: #666;"></i>
-                    <div style="margin-top: 10px; font-weight: 600;">${file.name}</div>
-                    <div style="font-size: 12px; color: #666;">${file.type} (${formatFileSize(file.size)})</div>
-                </div>
-            `;
-        }
-        
-        console.log('Preview created for', fileType);
-    }
-    
-    // Update document card visual status
-    function updateDocumentCardStatus(fileType) {
-        const documentNames = {
-            'id': 'Primary Identification',
-            'selfie': 'Selfie with ID',
-            'payslip': 'Latest Payslip',
-            'companyId': 'Company ID'
+        // Document validation keywords
+        const validationKeywords = {
+            id: {
+                passport: ['passport', 'government', 'republic', 'international', 'visa'],
+                driver_license: ['driver', 'license', 'licence', 'permit', 'dl', 'driving'],
+                national_id: ['national', 'identity', 'id', 'card', 'identification', 'citizen']
+            },
+            payslip: [
+                'payslip', 'salary', 'employee', 'wage', 'net', 'gross',
+                'period', 'payroll', 'earning', 'deduction', 'tax',
+                'basic', 'allowance', 'overtime', 'bonus', 'commission'
+            ],
+            companyId: [] // Empty array for simplified validation
         };
         
-        // Find the document card by looking for the document name
-        const documentCards = document.querySelectorAll('.document-card');
-        documentCards.forEach(card => {
-            const docNameElement = card.querySelector('.document-name');
-            if (docNameElement && docNameElement.textContent === documentNames[fileType]) {
-                // Add a checkmark to the card
-                const cardHeader = card.querySelector('.card-header');
-                if (cardHeader && !cardHeader.querySelector('.uploaded-checkmark')) {
-                    const checkmark = document.createElement('div');
-                    checkmark.className = 'uploaded-checkmark';
-                    checkmark.innerHTML = '<i class="fas fa-check-circle" style="color: #27ae60; font-size: 20px;"></i>';
-                    checkmark.style.marginLeft = '10px';
-                    cardHeader.appendChild(checkmark);
-                }
-                
-                // Change border color to indicate completion
-                card.style.borderColor = '#27ae60';
-                card.style.boxShadow = '0 5px 15px rgba(39, 174, 96, 0.2)';
-            }
-        });
-    }
-    
-    // Update verification button state
-    function updateVerificationButton() {
-        // Check if all required documents are uploaded
-        const allDocumentsUploaded = Object.values(documentStatus).every(status => status.uploaded);
-        const hasIDType = idTypeSelect.value !== '';
-        
-        console.log('Verification button check:', { 
-            allDocumentsUploaded, 
-            hasIDType,
-            documentStatus 
-        });
-        
-        // Enable button only if ALL documents are uploaded AND ID type is selected
-        verifyBtn.disabled = !(allDocumentsUploaded && hasIDType);
-        
-        if (!verifyBtn.disabled) {
-            verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify All Documents';
-            verifyBtn.style.background = 'linear-gradient(to right, #27ae60, #2ecc71)';
-        } else {
-            verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Documents (Upload All Required Files)';
-            verifyBtn.style.background = 'linear-gradient(to right, #4a6fa5, #2c3e50)';
+        // Initialize event listeners
+        function initialize() {
+            console.log('Initializing document verification system...');
             
-            // Show which documents are missing
-            const missingDocs = [];
-            for (const [docType, status] of Object.entries(documentStatus)) {
-                if (!status.uploaded) {
-                    const docNames = {
-                        'id': 'Primary ID',
-                        'selfie': 'Selfie with ID',
-                        'payslip': 'Payslip',
-                        'companyId': 'Company ID'
-                    };
-                    missingDocs.push(docNames[docType]);
-                }
-            }
-            
-            if (missingDocs.length > 0) {
-                console.log('Missing documents:', missingDocs);
-            }
-        }
-    }
-    
-    // Update verification status display
-    function updateVerificationStatus() {
-        const allDocumentsUploaded = Object.values(documentStatus).every(status => status.uploaded);
-        const hasIDType = idTypeSelect.value !== '';
-        
-        if (allDocumentsUploaded && hasIDType) {
-            // All documents uploaded and ID type selected
-            verificationStatus.className = 'status-indicator status-verifying';
-            verificationStatus.innerHTML = `
-                <i class="fas fa-check-circle"></i>
-                All documents uploaded. Ready to verify ${idTypeSelect.options[idTypeSelect.selectedIndex].text}
-            `;
-        } else if (!allDocumentsUploaded) {
-            // Some documents missing
-            verificationStatus.className = 'status-indicator status-pending';
-            
-            // Count how many documents are uploaded
-            const uploadedCount = Object.values(documentStatus).filter(status => status.uploaded).length;
-            const totalCount = Object.keys(documentStatus).length;
-            
-            verificationStatus.innerHTML = `
-                <i class="fas fa-clock"></i>
-                ${uploadedCount}/${totalCount} documents uploaded
-            `;
-        } else {
-            // Documents uploaded but no ID type selected
-            verificationStatus.className = 'status-indicator status-pending';
-            verificationStatus.innerHTML = `
-                <i class="fas fa-clock"></i>
-                Select ID type to continue
-            `;
-        }
-    }
-    
-    // Verify documents
-    async function verifyDocuments() {
-        console.log('Starting document verification...');
-        
-        // Validate that all documents are uploaded
-        const allDocumentsUploaded = Object.values(documentStatus).every(status => status.uploaded);
-        if (!allDocumentsUploaded) {
-            alert('Please upload all required documents before verification.');
-            return;
-        }
-        
-        // Validate ID type is selected
-        if (!idTypeSelect.value) {
-            alert('Please select the type of ID document.');
-            return;
-        }
-        
-        console.log('All validations passed, preparing to send to server...');
-        
-        // Show loading
-        loadingDiv.style.display = 'block';
-        verificationResult.style.display = 'none';
-        verifyBtn.disabled = true;
-        verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying All Documents...';
-        
-        try {
-            // Create FormData
-            const formData = new FormData();
-            formData.append('id_type', idTypeSelect.value);
-            formData.append('id_file', uploadedFiles.id.file);
-            formData.append('selfie_file', uploadedFiles.selfie.file);
-            formData.append('payslip_file', uploadedFiles.payslip.file);
-            formData.append('company_id_file', uploadedFiles.companyId.file);
-            
-            // Log FormData contents (for debugging)
-            console.log('FormData created with all 4 documents');
-            
-            // Send to backend
-            console.log('Sending request to /verify endpoint...');
-            const response = await fetch('/verify', {
-                method: 'POST',
-                body: formData
+            // ID Type selection
+            idTypeSelect.addEventListener('change', function() {
+                console.log('ID type selected:', this.value);
+                updateVerificationButton();
+                updateVerificationStatus();
             });
             
-            console.log('Response received:', response.status);
-            const result = await response.json();
-            console.log('Verification result:', result);
+            // File input change handlers
+            idFileInput.addEventListener('change', (e) => handleFileUpload(e, 'id'));
+            selfieFileInput.addEventListener('change', (e) => handleFileUpload(e, 'selfie'));
+            payslipFileInput.addEventListener('change', (e) => handleFileUpload(e, 'payslip'));
+            companyIdFileInput.addEventListener('change', (e) => handleFileUpload(e, 'companyId'));
             
-            // Display results
-            displayVerificationResult(result);
+            // Upload area click handlers
+            document.getElementById('id-upload-area').addEventListener('click', () => idFileInput.click());
+            document.getElementById('selfie-upload-area').addEventListener('click', () => selfieFileInput.click());
+            document.getElementById('payslip-upload-area').addEventListener('click', () => payslipFileInput.click());
+            document.getElementById('company-id-upload-area').addEventListener('click', () => companyIdFileInput.click());
             
-        } catch (error) {
-            console.error('Verification error:', error);
-            displayError('Failed to verify documents. Please check console for details and try again.');
-        } finally {
-            // Hide loading
-            loadingDiv.style.display = 'none';
-            verifyBtn.disabled = false;
-            updateVerificationButton();
+            // Drag and drop functionality
+            uploadAreas.forEach(area => {
+                area.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    area.classList.add('drag-over');
+                });
+                
+                area.addEventListener('dragleave', () => {
+                    area.classList.remove('drag-over');
+                });
+                
+                area.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    area.classList.remove('drag-over');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        const file = files[0];
+                        const areaId = area.id.replace('-upload-area', '');
+                        console.log('File dropped on area:', areaId, 'File:', file.name);
+                        handleDroppedFile(file, areaId);
+                    }
+                });
+            });
+            
+            // Verify button
+            verifyBtn.addEventListener('click', verifyDocuments);
+            
+            // Reset button
+            resetBtn.addEventListener('click', resetAll);
+            
+            console.log('Initialization complete');
         }
-    }
-    
-    // Display verification result
-    function displayVerificationResult(result) {
-        console.log('Displaying verification result:', result);
-        verificationResult.style.display = 'block';
         
-        if (result.success) {
-            if (result.id_verification.is_authentic) {
-                // Legitimate document
-                verificationResult.className = 'verification-result legit';
-                document.getElementById('result-icon').className = 'fas fa-check-circle';
-                document.getElementById('result-icon').style.color = '#27ae60';
-                document.getElementById('result-title').textContent = '✓ All Documents Verified Successfully';
-                document.getElementById('result-message').textContent = 
-                    `Your ${idTypeSelect.options[idTypeSelect.selectedIndex].text} has been verified as authentic. All required documents are complete.`;
+        // Handle file upload
+        async function handleFileUpload(event, fileType) {
+            const file = event.target.files[0];
+            console.log('File selected for', fileType, ':', file ? file.name : 'No file');
+            if (file) {
+                await processFile(file, fileType);
+            }
+        }
+        
+        // Handle dropped file
+        async function handleDroppedFile(file, areaId) {
+            console.log('handleDroppedFile called with areaId:', areaId, 'file:', file.name);
+            
+            let fileType;
+            let fileInputId;
+            
+            switch(areaId) {
+                case 'id': 
+                    fileType = 'id'; 
+                    fileInputId = 'id-file';
+                    break;
+                case 'selfie': 
+                    fileType = 'selfie'; 
+                    fileInputId = 'selfie-file';
+                    break;
+                case 'payslip': 
+                    fileType = 'payslip'; 
+                    fileInputId = 'payslip-file';
+                    break;
+                case 'company-id': 
+                    fileType = 'companyId'; 
+                    fileInputId = 'company-id-file';
+                    break;
+                default: 
+                    console.log('Unknown area:', areaId);
+                    alert('Unknown upload area. Please try clicking the upload area instead.');
+                    return;
+            }
+            
+            console.log('Processing file for type:', fileType, 'inputId:', fileInputId);
+            
+            // Process the file
+            await processFile(file, fileType);
+            
+            // Update the corresponding file input
+            const fileInput = document.getElementById(fileInputId);
+            if (fileInput) {
+                console.log('Updating file input:', fileInputId);
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                // Trigger change event
+                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
             } else {
-                // Potentially fake document
-                verificationResult.className = 'verification-result fake';
-                document.getElementById('result-icon').className = 'fas fa-exclamation-triangle';
-                document.getElementById('result-icon').style.color = '#e74c3c';
-                document.getElementById('result-title').textContent = '⚠ Potential Issues Detected';
-                document.getElementById('result-message').textContent = 
-                    `Our system detected potential issues with your ${idTypeSelect.options[idTypeSelect.selectedIndex].text}. Please review the details below.`;
+                console.error('File input not found:', fileInputId);
+            }
+        }
+        
+        // Process uploaded file - MODIFIED TO REMOVE COMPANY ID RESTRICTIONS
+        async function processFile(file, fileType) {
+            console.log('Processing file:', file.name, 'type:', fileType);
+            
+            // Check file size (max 5MB) - EXCEPT FOR COMPANY ID
+            if (fileType !== 'companyId' && file.size > 5 * 1024 * 1024) {
+                alert(`File "${file.name}" exceeds 5MB size limit. Please upload a smaller file.`);
+                return;
             }
             
-            // Display details
-            const detailsDiv = document.getElementById('result-details');
-            detailsDiv.innerHTML = '';
+            // Check file type - EXCEPT FOR COMPANY ID
+            if (fileType !== 'companyId') {
+                const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+                const fileTypeLower = file.type.toLowerCase();
+                if (!validTypes.includes(fileTypeLower)) {
+                    alert(`File type "${file.type}" not supported. Please upload JPG, PNG, or PDF files.`);
+                    return;
+                }
+            }
             
-            // Primary ID verification details
-            const idDetails = result.id_verification;
-            if (idDetails.analysis) {
-                const analysisTitle = document.createElement('h4');
-                analysisTitle.textContent = 'Primary ID Analysis';
-                analysisTitle.style.marginBottom = '10px';
-                analysisTitle.style.color = '#2c3e50';
-                detailsDiv.appendChild(analysisTitle);
+            // Store file
+            uploadedFiles[fileType].file = file;
+            
+            console.log('File stored for', fileType);
+            
+            // Show preview
+            showPreview(file, fileType);
+            
+            // Validate file content
+            await validateFileContent(file, fileType);
+            
+            // Update verification button state
+            updateVerificationButton();
+            
+            // Update status
+            updateVerificationStatus();
+        }
+        
+        // Validate file content based on document type - SIMPLIFIED COMPANY ID VALIDATION
+        async function validateFileContent(file, fileType) {
+            console.log('Validating', fileType, 'file:', file.name);
+            
+            const validationElement = document.getElementById(`${fileType}-validation`);
+            const documentCard = document.getElementById(`${fileType}-card`);
+            
+            // Reset validation state
+            uploadedFiles[fileType].validated = false;
+            validationElement.className = 'validation-status';
+            documentCard.classList.remove('validated', 'warning', 'error');
+            
+            try {
+                let textContent = '';
                 
-                for (const [key, value] of Object.entries(idDetails.analysis)) {
-                    const detailItem = document.createElement('div');
-                    detailItem.className = 'detail-item';
-                    
-                    const keySpan = document.createElement('span');
-                    keySpan.textContent = formatKey(key);
-                    
-                    const valueSpan = document.createElement('span');
-                    valueSpan.textContent = value;
-                    valueSpan.style.fontWeight = '600';
-                    
-                    // Color code based on value
-                    if (typeof value === 'string' && value.toLowerCase().includes('pass')) {
-                        valueSpan.style.color = '#27ae60';
-                    } else if (typeof value === 'string' && value.toLowerCase().includes('fail')) {
-                        valueSpan.style.color = '#e74c3c';
+                // Extract text from file
+                if (file.type === 'application/pdf') {
+                    textContent = await extractTextFromPDF(file);
+                } else if (file.type.startsWith('image/')) {
+                    textContent = await extractTextFromImage(file);
+                } else if (fileType === 'companyId') {
+                    // For company ID, we accept any file type
+                    textContent = 'company_id_uploaded'; // Placeholder
+                }
+                
+                console.log(`Extracted text from ${fileType}:`, textContent.substring(0, 100) + '...');
+                
+                // Validate based on document type
+                if (fileType === 'id') {
+                    const idType = idTypeSelect.value;
+                    if (!idType) {
+                        showValidationWarning(validationElement, documentCard, 'Please select ID type first', fileType);
+                        return;
                     }
                     
-                    detailItem.appendChild(keySpan);
-                    detailItem.appendChild(valueSpan);
-                    detailsDiv.appendChild(detailItem);
-                }
-            }
-            
-            // Confidence score
-            const confidenceItem = document.createElement('div');
-            confidenceItem.className = 'detail-item';
-            confidenceItem.innerHTML = `
-                <span><strong>Confidence Score</strong></span>
-                <span style="font-weight: 800; color: ${idDetails.confidence > 70 ? '#27ae60' : idDetails.confidence > 40 ? '#f39c12' : '#e74c3c'}">
-                    ${idDetails.confidence}%
-                </span>
-            `;
-            detailsDiv.appendChild(confidenceItem);
-            
-            // Document upload status
-            const uploadStatusDiv = document.createElement('div');
-            uploadStatusDiv.style.marginTop = '20px';
-            uploadStatusDiv.style.paddingTop = '20px';
-            uploadStatusDiv.style.borderTop = '2px solid #eee';
-            
-            const uploadTitle = document.createElement('h4');
-            uploadTitle.textContent = 'Document Upload Status';
-            uploadTitle.style.marginBottom = '10px';
-            uploadTitle.style.color = '#2c3e50';
-            uploadStatusDiv.appendChild(uploadTitle);
-            
-            // List all uploaded documents
-            const documents = [
-                { name: 'Primary ID', status: '✓ Uploaded & Verified', color: '#27ae60' },
-                { name: 'Selfie with ID', status: '✓ Uploaded', color: '#27ae60' },
-                { name: 'Latest Payslip', status: '✓ Uploaded', color: '#27ae60' },
-                { name: 'Company ID', status: '✓ Uploaded', color: '#27ae60' }
-            ];
-            
-            documents.forEach(doc => {
-                const docItem = document.createElement('div');
-                docItem.className = 'detail-item';
-                docItem.innerHTML = `
-                    <span>${doc.name}</span>
-                    <span style="color: ${doc.color}; font-weight: 600;">${doc.status}</span>
-                `;
-                uploadStatusDiv.appendChild(docItem);
-            });
-            
-            detailsDiv.appendChild(uploadStatusDiv);
-            
-            // Update status indicator
-            if (idDetails.is_authentic) {
-                verificationStatus.className = 'status-indicator status-legit';
-                verificationStatus.innerHTML = `<i class="fas fa-check-circle"></i> All Documents Verified Successfully`;
-            } else {
-                verificationStatus.className = 'status-indicator status-fake';
-                verificationStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Verification Issues Found`;
-            }
-            
-        } else {
-            // Error case
-            verificationResult.className = 'verification-result';
-            document.getElementById('result-icon').className = 'fas fa-exclamation-circle';
-            document.getElementById('result-icon').style.color = '#f39c12';
-            document.getElementById('result-title').textContent = 'Verification Error';
-            document.getElementById('result-message').textContent = result.message || 'An error occurred during verification.';
-            
-            verificationStatus.className = 'status-indicator status-pending';
-            verificationStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> Verification Error`;
-        }
-    }
-    
-    // Display error
-    function displayError(message) {
-        verificationResult.style.display = 'block';
-        verificationResult.className = 'verification-result';
-        document.getElementById('result-icon').className = 'fas fa-exclamation-circle';
-        document.getElementById('result-icon').style.color = '#e74c3c';
-        document.getElementById('result-title').textContent = 'Error';
-        document.getElementById('result-message').textContent = message;
-        
-        verificationStatus.className = 'status-indicator status-pending';
-        verificationStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error Occurred`;
-    }
-    
-    // Reset all
-    function resetAll() {
-        if (confirm('Are you sure you want to reset all uploaded documents?')) {
-            console.log('Resetting all documents...');
-            
-            // Clear file inputs
-            idFileInput.value = '';
-            selfieFileInput.value = '';
-            payslipFileInput.value = '';
-            companyIdFileInput.value = '';
-            
-            // Reset uploaded files
-            uploadedFiles.id = null;
-            uploadedFiles.selfie = null;
-            uploadedFiles.payslip = null;
-            uploadedFiles.companyId = null;
-            
-            // Reset document status
-            for (const docType in documentStatus) {
-                documentStatus[docType].uploaded = false;
-            }
-            
-            // Reset previews
-            document.getElementById('id-preview').innerHTML = '<div class="preview-placeholder">No ID uploaded yet</div>';
-            document.getElementById('selfie-preview').innerHTML = '<div class="preview-placeholder">No selfie uploaded yet</div>';
-            document.getElementById('payslip-preview').innerHTML = '<div class="preview-placeholder">No payslip uploaded yet</div>';
-            document.getElementById('company-id-preview').innerHTML = '<div class="preview-placeholder">No company ID uploaded yet</div>';
-            
-            // Reset ID type selection
-            idTypeSelect.value = '';
-            
-            // Reset document card visual indicators
-            const documentCards = document.querySelectorAll('.document-card');
-            documentCards.forEach(card => {
-                // Remove checkmarks
-                const checkmark = card.querySelector('.uploaded-checkmark');
-                if (checkmark) {
-                    checkmark.remove();
+                    const keywords = validationKeywords.id[idType] || [];
+                    const isValid = validateWithKeywords(textContent, keywords, 1); // At least 1 keyword match
+                    
+                    if (isValid) {
+                        showValidationSuccess(validationElement, documentCard, 
+                            `Valid ${idType.replace('_', ' ')} document detected`, fileType);
+                    } else {
+                        showValidationError(validationElement, documentCard, 
+                            `This doesn't appear to be a valid ${idType.replace('_', ' ')}. Please upload correct document.`, fileType);
+                    }
+                    
+                } else if (fileType === 'payslip') {
+                    const keywords = validationKeywords.payslip;
+                    const isValid = validateWithKeywords(textContent, keywords, 2); // At least 2 keyword matches
+                    
+                    if (isValid) {
+                        showValidationSuccess(validationElement, documentCard, 
+                            'Valid payslip document detected', fileType);
+                    } else if (textContent.trim().length > 0) {
+                        showValidationWarning(validationElement, documentCard, 
+                            'This may not be a payslip. Please ensure it contains salary information.', fileType);
+                    } else {
+                        showValidationError(validationElement, documentCard, 
+                            'No readable text found. Please upload a clear image of your payslip.', fileType);
+                    }
+                    
+                } else if (fileType === 'companyId') {
+                    // UNRESTRICTED - ACCEPT ANY FILE
+                    uploadedFiles[fileType].validated = true;
+                    showValidationSuccess(validationElement, documentCard, 
+                        'Company ID uploaded successfully', fileType);
+                    
+                } else if (fileType === 'selfie') {
+                    // For selfie, we just check if it's an image
+                    if (file.type.startsWith('image/')) {
+                        showValidationSuccess(validationElement, documentCard, 
+                            'Selfie image uploaded successfully', fileType);
+                    } else {
+                        showValidationError(validationElement, documentCard, 
+                            'Please upload an image file for selfie', fileType);
+                    }
                 }
                 
-                // Reset border color
-                card.style.borderColor = '#e9ecef';
-                card.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.05)';
+            } catch (error) {
+                console.error('Validation error:', error);
+                
+                // SPECIAL HANDLING FOR COMPANY ID - ALWAYS ACCEPT
+                if (fileType === 'companyId') {
+                    uploadedFiles[fileType].validated = true;
+                    showValidationSuccess(validationElement, documentCard, 
+                        'Company ID uploaded (unrestricted validation)', fileType);
+                } else {
+                    showValidationError(validationElement, documentCard, 
+                        'Error validating document. Please try again.', fileType);
+                }
+            }
+        }
+        
+        // Validate text content with keywords
+        function validateWithKeywords(text, keywords, minMatches = 1) {
+            const textLower = text.toLowerCase();
+            let matches = 0;
+            
+            for (const keyword of keywords) {
+                if (textLower.includes(keyword.toLowerCase())) {
+                    matches++;
+                }
+                if (matches >= minMatches) {
+                    return true;
+                }
+            }
+            
+            return matches >= minMatches;
+        }
+        
+        // Show validation success
+        function showValidationSuccess(element, card, message, fileType) {
+            element.className = 'validation-status success';
+            element.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            card.classList.add('validated');
+            uploadedFiles[fileType].validated = true;
+            uploadedFiles[fileType].validationMessage = message;
+        }
+        
+        // Show validation warning
+        function showValidationWarning(element, card, message, fileType) {
+            element.className = 'validation-status warning';
+            element.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            card.classList.add('warning');
+            uploadedFiles[fileType].validated = false;
+            uploadedFiles[fileType].validationMessage = message;
+        }
+        
+        // Show validation error
+        function showValidationError(element, card, message, fileType) {
+            element.className = 'validation-status error';
+            element.innerHTML = `<i class="fas fa-times-circle"></i> ${message}`;
+            card.classList.add('error');
+            uploadedFiles[fileType].validated = false;
+            uploadedFiles[fileType].validationMessage = message;
+        }
+        
+        // Extract text from PDF file
+        async function extractTextFromPDF(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+                        if (!pdfjsLib) {
+                            resolve('');
+                            return;
+                        }
+                        
+                        const typedarray = new Uint8Array(e.target.result);
+                        const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+                        let fullText = '';
+                        
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            fullText += pageText + ' ';
+                        }
+                        
+                        resolve(fullText);
+                    } catch (error) {
+                        console.warn('PDF text extraction failed:', error);
+                        resolve('');
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+        
+        // Extract text from image using Tesseract.js
+        async function extractTextFromImage(file) {
+            return new Promise((resolve, reject) => {
+                if (window.Tesseract) {
+                    Tesseract.recognize(
+                        file,
+                        'eng',
+                        { logger: m => console.log('OCR progress:', m) }
+                    ).then(({ data: { text } }) => {
+                        resolve(text);
+                    }).catch(error => {
+                        console.warn('Tesseract OCR failed:', error);
+                        resolve('');
+                    });
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            resolve('');
+                        };
+                        img.onerror = function() {
+                            resolve('');
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Show file preview
+        function showPreview(file, fileType) {
+            console.log('Showing preview for', fileType);
+            
+            let previewId;
+            switch(fileType) {
+                case 'id': previewId = 'id-preview'; break;
+                case 'selfie': previewId = 'selfie-preview'; break;
+                case 'payslip': previewId = 'payslip-preview'; break;
+                case 'companyId': previewId = 'company-id-preview'; break;
+                default: 
+                    console.error('Unknown file type for preview:', fileType);
+                    return;
+            }
+            
+            const previewContainer = document.getElementById(previewId);
+            
+            if (!previewContainer) {
+                console.error(`Preview container not found: ${previewId}`);
+                return;
+            }
+            
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewContainer.innerHTML = `
+                        <img src="${e.target.result}" class="preview-image" alt="${file.name}">
+                        <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                            ${file.name} (${formatFileSize(file.size)})
+                        </div>
+                    `;
+                };
+                reader.onerror = function(e) {
+                    previewContainer.innerHTML = `
+                        <div class="preview-placeholder">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>Error loading preview</div>
+                            <div style="font-size: 12px;">${file.name}</div>
+                        </div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else if (file.type === 'application/pdf') {
+                previewContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fas fa-file-pdf" style="font-size: 48px; color: #e74c3c;"></i>
+                        <div style="margin-top: 10px; font-weight: 600;">${file.name}</div>
+                        <div style="font-size: 12px; color: #666;">PDF Document (${formatFileSize(file.size)})</div>
+                    </div>
+                `;
+            } else {
+                // For other file types (company ID)
+                previewContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fas fa-file" style="font-size: 48px; color: #3498db;"></i>
+                        <div style="margin-top: 10px; font-weight: 600;">${file.name}</div>
+                        <div style="font-size: 12px; color: #666;">${file.type || 'File'} (${formatFileSize(file.size)})</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Update verification button state
+        function updateVerificationButton() {
+            // Check if all documents are uploaded
+            const allUploaded = Object.values(uploadedFiles).every(file => file.file !== null);
+            const hasIDType = idTypeSelect.value !== '';
+            
+            // Check validation for strict documents only (not companyId)
+            const idValidated = uploadedFiles.id.validated;
+            const selfieValidated = uploadedFiles.selfie.validated;
+            const payslipValidated = uploadedFiles.payslip.validated;
+            
+            // Company ID is always considered validated if uploaded
+            const companyIdUploaded = uploadedFiles.companyId.file !== null;
+            
+            console.log('Verification button check:', { 
+                allUploaded, 
+                hasIDType,
+                idValidated,
+                selfieValidated,
+                payslipValidated,
+                companyIdUploaded
             });
             
-            // Hide verification result
-            verificationResult.style.display = 'none';
+            // Enable button if:
+            // 1. All files uploaded
+            // 2. ID type selected
+            // 3. Strict documents validated
+            // 4. Company ID uploaded (always validated)
+            const shouldEnable = allUploaded && 
+                               hasIDType && 
+                               idValidated && 
+                               selfieValidated && 
+                               payslipValidated;
             
-            // Reset status
-            verificationStatus.className = 'status-indicator status-pending';
-            verificationStatus.innerHTML = '<i class="fas fa-clock"></i> Upload all required documents';
+            verifyBtn.disabled = !shouldEnable;
             
-            // Update button state
-            updateVerificationButton();
-            
-            console.log('Reset complete');
+            if (shouldEnable) {
+                verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify All Documents';
+                verifyBtn.classList.add('enabled');
+                verificationStatus.className = 'status-indicator status-verifying';
+                verificationStatus.innerHTML = '<i class="fas fa-check-circle"></i> All documents validated. Ready to verify';
+            } else {
+                verifyBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Documents';
+                verifyBtn.classList.remove('enabled');
+                
+                // Show what's missing
+                const missingDocs = [];
+                const invalidDocs = [];
+                
+                if (!uploadedFiles.id.file) missingDocs.push('Primary ID');
+                if (!uploadedFiles.selfie.file) missingDocs.push('Selfie');
+                if (!uploadedFiles.payslip.file) missingDocs.push('Payslip');
+                if (!uploadedFiles.companyId.file) missingDocs.push('Company ID');
+                
+                if (!uploadedFiles.id.validated && uploadedFiles.id.file) invalidDocs.push('Primary ID');
+                if (!uploadedFiles.selfie.validated && uploadedFiles.selfie.file) invalidDocs.push('Selfie');
+                if (!uploadedFiles.payslip.validated && uploadedFiles.payslip.file) invalidDocs.push('Payslip');
+                
+                let statusMessage = 'Upload all 4 required documents';
+                if (missingDocs.length > 0) {
+                    statusMessage = `Missing: ${missingDocs.join(', ')}`;
+                } else if (invalidDocs.length > 0) {
+                    statusMessage = `Validation issues: ${invalidDocs.join(', ')}`;
+                } else if (!hasIDType) {
+                    statusMessage = 'Select ID type to continue';
+                }
+                
+                verificationStatus.innerHTML = `<i class="fas fa-clock"></i> ${statusMessage}`;
+                
+                if (invalidDocs.length > 0) {
+                    verificationStatus.className = 'status-indicator status-warning';
+                } else {
+                    verificationStatus.className = 'status-indicator status-pending';
+                }
+            }
         }
-    }
-    
-    // Helper function to format file size
-    function formatFileSize(bytes) {
-        if (bytes < 1024) return bytes + ' bytes';
-        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-        else return (bytes / 1048576).toFixed(1) + ' MB';
-    }
-    
-    // Helper function to format keys for display
-    function formatKey(key) {
-        return key
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, l => l.toUpperCase())
-            .replace(/Id\b/g, 'ID');
-    }
-    
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', initialize);
-    
-    // Debug helper: log all elements
-    console.log('Page loaded, checking elements...');
-    setTimeout(() => {
-        console.log('Company ID file input exists:', !!document.getElementById('company-id-file'));
-        console.log('Company ID upload area exists:', !!document.getElementById('company-id-upload-area'));
-        console.log('Company ID preview exists:', !!document.getElementById('company-id-preview'));
-    }, 1000);
-</script>
+        
+        // Verify documents
+        async function verifyDocuments() {
+            console.log('Starting document verification...');
+            
+            // Double-check validation before proceeding
+            const idValidated = uploadedFiles.id.validated;
+            const selfieValidated = uploadedFiles.selfie.validated;
+            const payslipValidated = uploadedFiles.payslip.validated;
+            
+            if (!idValidated || !selfieValidated || !payslipValidated) {
+                alert('Some documents have validation issues. Please fix them before verification.');
+                return;
+            }
+            
+            if (!idTypeSelect.value) {
+                alert('Please select the type of ID document.');
+                return;
+            }
+            
+            console.log('All validations passed, preparing to send to server...');
+            
+            // Show loading
+            loadingDiv.style.display = 'block';
+            verificationResult.style.display = 'none';
+            verifyBtn.disabled = true;
+            verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying All Documents...';
+            
+            try {
+                // Create FormData
+                const formData = new FormData();
+                formData.append('id_type', idTypeSelect.value);
+                formData.append('id_file', uploadedFiles.id.file);
+                formData.append('selfie_file', uploadedFiles.selfie.file);
+                formData.append('payslip_file', uploadedFiles.payslip.file);
+                formData.append('company_id_file', uploadedFiles.companyId.file);
+                
+                // Send to backend
+                console.log('Sending request to /verify endpoint...');
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response received:', response.status);
+                const result = await response.json();
+                console.log('Verification result:', result);
+                
+                // Display results
+                displayVerificationResult(result);
+                
+            } catch (error) {
+                console.error('Verification error:', error);
+                displayError('Failed to verify documents. Please check console for details and try again.');
+            } finally {
+                // Hide loading
+                loadingDiv.style.display = 'none';
+                updateVerificationButton();
+            }
+        }
+        
+        // Display verification result
+        function displayVerificationResult(result) {
+            console.log('Displaying verification result:', result);
+            verificationResult.style.display = 'block';
+            
+            if (result.success) {
+                if (result.id_verification.is_authentic) {
+                    // Legitimate document
+                    verificationResult.className = 'verification-result legit';
+                    document.getElementById('result-icon').className = 'fas fa-check-circle';
+                    document.getElementById('result-icon').style.color = '#27ae60';
+                    document.getElementById('result-title').textContent = '✓ All Documents Verified Successfully';
+                    document.getElementById('result-message').textContent = 
+                        `Your ${idTypeSelect.options[idTypeSelect.selectedIndex].text} has been verified as authentic. All documents passed validation.`;
+                    
+                    verificationStatus.className = 'status-indicator status-legit';
+                    verificationStatus.innerHTML = `<i class="fas fa-check-circle"></i> All Documents Verified Successfully`;
+                } else {
+                    // Potentially fake document
+                    verificationResult.className = 'verification-result fake';
+                    document.getElementById('result-icon').className = 'fas fa-exclamation-triangle';
+                    document.getElementById('result-icon').style.color = '#e74c3c';
+                    document.getElementById('result-title').textContent = '⚠ Potential Issues Detected';
+                    document.getElementById('result-message').textContent = 
+                        `Our system detected potential issues with your ${idTypeSelect.options[idTypeSelect.selectedIndex].text}.`;
+                    
+                    verificationStatus.className = 'status-indicator status-fake';
+                    verificationStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Verification Issues Found`;
+                }
+                
+                // Display details
+                const detailsDiv = document.getElementById('result-details');
+                detailsDiv.innerHTML = '';
+                
+                // Add validation summary
+                if (result.validation_summary && result.validation_summary.details) {
+                    const validationSummary = document.createElement('div');
+                    validationSummary.style.marginBottom = '20px';
+                    validationSummary.innerHTML = `
+                        <h4 style="margin-bottom: 10px; color: #2c3e50;">Document Validation Summary</h4>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    `;
+                    
+                    for (const [docType, validation] of Object.entries(result.validation_summary.details)) {
+                        const docName = docType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        const status = validation.is_valid ? 
+                            `<span style="color: #27ae60; font-weight: 600;">✓ ${validation.message}</span>` :
+                            `<span style="color: #e74c3c; font-weight: 600;">✗ ${validation.message}</span>`;
+                        
+                        validationSummary.innerHTML += `
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span>${docName}:</span>
+                                ${status}
+                            </div>
+                        `;
+                    }
+                    
+                    validationSummary.innerHTML += '</div>';
+                    detailsDiv.appendChild(validationSummary);
+                }
+                
+                // Primary ID verification details
+                const idDetails = result.id_verification;
+                if (idDetails.analysis) {
+                    const analysisTitle = document.createElement('h4');
+                    analysisTitle.textContent = 'Primary ID Analysis';
+                    analysisTitle.style.marginBottom = '10px';
+                    analysisTitle.style.color = '#2c3e50';
+                    detailsDiv.appendChild(analysisTitle);
+                    
+                    for (const [key, value] of Object.entries(idDetails.analysis)) {
+                        const detailItem = document.createElement('div');
+                        detailItem.className = 'detail-item';
+                        
+                        const keySpan = document.createElement('span');
+                        keySpan.textContent = formatKey(key);
+                        
+                        const valueSpan = document.createElement('span');
+                        valueSpan.textContent = value;
+                        valueSpan.style.fontWeight = '600';
+                        
+                        detailItem.appendChild(keySpan);
+                        detailItem.appendChild(valueSpan);
+                        detailsDiv.appendChild(detailItem);
+                    }
+                }
+                
+                // Confidence score
+                const confidenceItem = document.createElement('div');
+                confidenceItem.className = 'detail-item';
+                confidenceItem.innerHTML = `
+                    <span><strong>Confidence Score</strong></span>
+                    <span style="font-weight: 800; color: ${idDetails.confidence > 70 ? '#27ae60' : idDetails.confidence > 40 ? '#f39c12' : '#e74c3c'}">
+                        ${idDetails.confidence}%
+                    </span>
+                `;
+                detailsDiv.appendChild(confidenceItem);
+                
+            } else {
+                // Error case
+                verificationResult.className = 'verification-result';
+                document.getElementById('result-icon').className = 'fas fa-exclamation-circle';
+                document.getElementById('result-icon').style.color = '#f39c12';
+                document.getElementById('result-title').textContent = 'Verification Error';
+                
+                let errorMessage = result.message || 'An error occurred during verification.';
+                if (result.validation_errors) {
+                    errorMessage += '<br><br>Validation Errors:<br>' + 
+                        result.validation_errors.map(err => `• ${err}`).join('<br>');
+                }
+                
+                document.getElementById('result-message').innerHTML = errorMessage;
+                
+                verificationStatus.className = 'status-indicator status-error';
+                verificationStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> Verification Error`;
+            }
+        }
+        
+        // Display error
+        function displayError(message) {
+            verificationResult.style.display = 'block';
+            verificationResult.className = 'verification-result';
+            document.getElementById('result-icon').className = 'fas fa-exclamation-circle';
+            document.getElementById('result-icon').style.color = '#e74c3c';
+            document.getElementById('result-title').textContent = 'Error';
+            document.getElementById('result-message').textContent = message;
+            
+            verificationStatus.className = 'status-indicator status-error';
+            verificationStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error Occurred`;
+        }
+        
+        // Reset all
+        function resetAll() {
+            if (confirm('Are you sure you want to reset all uploaded documents?')) {
+                console.log('Resetting all documents...');
+                
+                // Clear file inputs
+                idFileInput.value = '';
+                selfieFileInput.value = '';
+                payslipFileInput.value = '';
+                companyIdFileInput.value = '';
+                
+                // Reset uploaded files
+                for (const key in uploadedFiles) {
+                    uploadedFiles[key] = { file: null, validated: false, validationMessage: '' };
+                }
+                
+                // Reset previews
+                document.getElementById('id-preview').innerHTML = '<div class="preview-placeholder">No ID uploaded yet</div>';
+                document.getElementById('selfie-preview').innerHTML = '<div class="preview-placeholder">No selfie uploaded yet</div>';
+                document.getElementById('payslip-preview').innerHTML = '<div class="preview-placeholder">No payslip uploaded yet</div>';
+                document.getElementById('company-id-preview').innerHTML = '<div class="preview-placeholder">No company ID uploaded yet</div>';
+                
+                // Reset validation displays
+                const validationElements = ['id-validation', 'selfie-validation', 'payslip-validation', 'company-id-validation'];
+                validationElements.forEach(id => {
+                    const element = document.getElementById(id);
+                    element.className = 'validation-status';
+                    element.innerHTML = '';
+                });
+                
+                // Reset document cards
+                const cards = ['id-card', 'selfie-card', 'payslip-card', 'company-id-card'];
+                cards.forEach(id => {
+                    const card = document.getElementById(id);
+                    card.className = 'document-card';
+                });
+                
+                // Reset ID type selection
+                idTypeSelect.value = '';
+                
+                // Hide verification result
+                verificationResult.style.display = 'none';
+                
+                // Reset status
+                verificationStatus.className = 'status-indicator status-pending';
+                verificationStatus.innerHTML = '<i class="fas fa-clock"></i> Upload all 4 required documents and select ID type';
+                
+                // Update button state
+                updateVerificationButton();
+                
+                console.log('Reset complete');
+            }
+        }
+        
+        // Helper function to format file size
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' bytes';
+            else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            else return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+        
+        // Helper function to format keys for display
+        function formatKey(key) {
+            return key
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase())
+                .replace(/Id\b/g, 'ID');
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initialize);
+        
+        // Load Tesseract.js for OCR if needed
+        function loadOCRScript() {
+            if (!window.Tesseract) {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@v4.0.2/dist/tesseract.min.js';
+                script.onload = () => console.log('Tesseract.js loaded for OCR');
+                document.head.appendChild(script);
+            }
+        }
+        
+        // Load PDF.js for PDF text extraction if needed
+        function loadPDFJSScript() {
+            if (!window['pdfjs-dist/build/pdf']) {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+                script.onload = () => console.log('PDF.js loaded for PDF text extraction');
+                document.head.appendChild(script);
+            }
+        }
+        
+        // Load OCR and PDF libraries
+        setTimeout(() => {
+            loadOCRScript();
+            loadPDFJSScript();
+        }, 1000);
+    </script>
 </body>
 </html>
