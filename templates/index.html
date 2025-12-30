@@ -81,15 +81,43 @@
             position: relative;
         }
 
-        /* Theme Toggle Button */
-        .theme-toggle-wrapper {
+        /* Top Bar */
+        .top-bar {
             position: absolute;
             top: 20px;
-            right: 20px;
+            width: 100%;
+            padding: 0 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             z-index: 100;
         }
-        
-        .theme-btn {
+
+        .user-info {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(5px);
+            font-family: 'Chakra Petch';
+            font-size: 0.9rem;
+        }
+
+        .user-info i {
+            color: var(--primary);
+        }
+
+        .session-time {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-family: 'Inter';
+        }
+
+        .theme-btn, .logout-btn {
             background: var(--bg-panel);
             border: 1px solid var(--border-color);
             color: var(--text-main);
@@ -104,7 +132,8 @@
             font-size: 1.2rem;
             backdrop-filter: blur(5px);
         }
-        .theme-btn:hover {
+
+        .theme-btn:hover, .logout-btn:hover {
             box-shadow: 0 0 15px var(--glow-color);
             color: var(--primary);
             border-color: var(--primary);
@@ -113,7 +142,7 @@
         /* Header */
         header {
             background: linear-gradient(180deg, rgba(0,0,0,0) 0%, var(--glow-color) 100%);
-            padding: 50px 30px 40px;
+            padding: 80px 30px 40px;
             text-align: center;
             border-bottom: 2px solid var(--border-color);
         }
@@ -337,15 +366,28 @@
             .toast-container { right: 20px; top: 80px; }
             .type-grid { grid-template-columns: 1fr; }
             #selected-type-display { flex-direction: column; text-align: center; gap: 15px; }
+            .top-bar { padding: 0 20px; }
+            header { padding: 70px 20px 30px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="theme-toggle-wrapper">
-        <button class="theme-btn" id="theme-toggle" title="Toggle Light/Dark Mode">
-            <i class="fas fa-sun" id="theme-icon"></i>
-        </button>
+    <!-- Top Bar with User Info and Controls -->
+    <div class="top-bar">
+        <div class="user-info">
+            <i class="fas fa-user-shield"></i>
+            <span>ADMIN</span>
+            <div class="session-time" id="sessionTimer">SESSION: 60:00</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="theme-btn" id="theme-toggle" title="Toggle Light/Dark Mode">
+                <i class="fas fa-sun" id="theme-icon"></i>
+            </button>
+            <button class="logout-btn" id="logoutBtn" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
     </div>
 
     <div class="toast-container" id="toast-container"></div>
@@ -488,6 +530,57 @@
                 themeIcon.className = 'fas fa-moon';
             }
         }
+
+        // --- SESSION MANAGEMENT ---
+        let sessionTimer;
+        let sessionMinutes = 60;
+
+        function updateSessionTimer() {
+            const sessionTimerElement = document.getElementById('sessionTimer');
+            if (sessionMinutes > 0) {
+                sessionMinutes--;
+                const minutes = Math.floor(sessionMinutes / 60);
+                const seconds = sessionMinutes % 60;
+                sessionTimerElement.textContent = `SESSION: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Warning when less than 5 minutes remaining
+                if (sessionMinutes < 5) {
+                    sessionTimerElement.style.color = 'var(--error)';
+                }
+            } else {
+                clearInterval(sessionTimer);
+                logout();
+            }
+        }
+
+        function startSessionTimer() {
+            clearInterval(sessionTimer);
+            sessionMinutes = 60 * 60; // 60 minutes in seconds
+            updateSessionTimer();
+            sessionTimer = setInterval(updateSessionTimer, 1000);
+        }
+
+        // --- LOGOUT FUNCTIONALITY ---
+        async function logout() {
+            try {
+                const response = await fetch('/logout', { 
+                    method: 'POST' 
+                });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            if (confirm('TERMINATE SESSION? You will be logged out from the system.')) {
+                logout();
+            }
+        });
 
         // --- TOAST NOTIFICATIONS ---
         const toastContainer = document.getElementById('toast-container');
@@ -932,8 +1025,28 @@
             showToast('READY FOR NEXT VERIFICATION', 'info');
         }
 
+        // --- AUTHENTICATION CHECK ---
+        async function checkAuthentication() {
+            try {
+                const response = await fetch('/check-auth');
+                if (!response.ok) {
+                    // Not authenticated, redirect to login
+                    window.location.href = '/login';
+                } else {
+                    // Start session timer
+                    startSessionTimer();
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/login';
+            }
+        }
+
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication first
+            checkAuthentication();
+            
             // Initialize document type selection
             initDocumentTypeSelection();
             

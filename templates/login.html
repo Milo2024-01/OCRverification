@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER-ID VERIFIER - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- THEME VARIABLES --- */
+        :root {
+            /* DEFAULT DARK THEME (Cyberpunk) */
+            --bg-body: #020617;
+            --bg-panel: rgba(15, 23, 42, 0.7);
+            --bg-input: rgba(0, 243, 255, 0.05);
+            
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            
+            --primary: #00f3ff;       /* Cyan */
+            --secondary: #ff00e6;     /* Pink */
+            --success: #39ff14;       /* Neon Green */
+            --error: #ff3838;         /* Neon Red */
+            
+            --border-color: rgba(0, 243, 255, 0.2);
+            --glow-color: rgba(0, 243, 255, 0.15);
+            --grid-line: rgba(0, 243, 255, 0.05);
+        }
+
+        /* LIGHT THEME OVERRIDES (High-Tech Lab) */
+        [data-theme="light"] {
+            --bg-body: #f1f5f9;
+            --bg-panel: rgba(255, 255, 255, 0.75);
+            --bg-input: rgba(0, 100, 255, 0.03);
+            
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            
+            --primary: #2563eb;       /* Deep Royal Blue */
+            --secondary: #d946ef;     /* Magenta */
+            --success: #059669;       /* Emerald */
+            --error: #dc2626;         /* Red */
+            
+            --border-color: rgba(37, 99, 235, 0.2);
+            --glow-color: rgba(37, 99, 235, 0.1);
+            --grid-line: rgba(0, 0, 0, 0.03);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.4s ease, color 0.3s ease, border-color 0.3s ease; }
+        
+        body {
+            background-color: var(--bg-body);
+            background-image: 
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 30px 30px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', sans-serif;
+            padding: 20px;
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle-wrapper {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        
+        .theme-btn {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            backdrop-filter: blur(5px);
+        }
+        .theme-btn:hover {
+            box-shadow: 0 0 15px var(--glow-color);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 0 40px var(--glow-color);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .login-header {
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, var(--glow-color) 100%);
+            padding: 40px 30px;
+            text-align: center;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .login-header i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            background: -webkit-linear-gradient(var(--primary), var(--secondary));
+            background: linear-gradient(var(--primary), var(--secondary));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+
+        .login-header h1 {
+            font-family: 'Chakra Petch', sans-serif;
+            font-weight: 700;
+            font-size: 2rem;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--glow-color);
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .login-form {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-main);
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .input-with-icon {
+            position: relative;
+        }
+
+        .input-with-icon i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px 15px 15px 50px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--glow-color);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .login-btn:hover {
+            box-shadow: 0 0 30px var(--glow-color);
+            transform: translateY(-2px);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .error-message {
+            color: var(--error);
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .error-message.show {
+            display: flex;
+        }
+
+        .login-footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(57, 255, 20, 0.1);
+            color: var(--success);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-family: 'Chakra Petch', sans-serif;
+            margin-top: 10px;
+        }
+
+        /* Animation for login */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Loading animation */
+        .loading-dots {
+            display: inline-block;
+        }
+
+        .loading-dots::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        @media (max-width: 480px) {
+            .login-form {
+                padding: 30px 20px;
+            }
+            
+            .login-header {
+                padding: 30px 20px;
+            }
+            
+            .login-header h1 {
+                font-size: 1.7rem;
+            }
+            
+            .theme-toggle-wrapper {
+                top: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Theme Toggle Button -->
+    <div class="theme-toggle-wrapper">
+        <button class="theme-btn" id="theme-toggle" title="Toggle Light/Dark Mode">
+            <i class="fas fa-sun" id="theme-icon"></i>
+        </button>
+    </div>
+
+    <div class="login-container">
+        <div class="login-header">
+            <i class="fas fa-fingerprint pulse"></i>
+            <h1>SECURE ACCESS</h1>
+            <p>CYBER-ID VERIFIER v3.0</p>
+            <div class="security-badge">
+                <i class="fas fa-shield-alt"></i>
+                <span>SECURE CONNECTION ESTABLISHED</span>
+            </div>
+        </div>
+        
+        <form id="loginForm" class="login-form">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i> ACCESS ID
+                </label>
+                <div class="input-with-icon">
+                    <i class="fas fa-user-circle"></i>
+                    <input type="text" 
+                           id="username" 
+                           class="form-input" 
+                           placeholder="Enter access identifier"
+                           required
+                           autocomplete="username">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-key"></i> SECURITY KEY
+                </label>
+                <div class="input-with-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" 
+                           id="password" 
+                           class="form-input" 
+                           placeholder="Enter security key"
+                           required
+                           autocomplete="current-password">
+                </div>
+                <div id="passwordError" class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>Invalid credentials. Access denied.</span>
+                </div>
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginBtn">
+                <i class="fas fa-terminal"></i>
+                <span>INITIATE SESSION</span>
+            </button>
+            
+            <div id="loginStatus" class="error-message" style="color: var(--text-muted); margin-top: 15px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Default credentials: admin / jethro123</span>
+            </div>
+        </form>
+        
+        <div class="login-footer">
+            <p><i class="fas fa-server"></i> SYSTEM STATUS: <span style="color: var(--success);">ONLINE</span></p>
+            <p style="margin-top: 5px; font-size: 0.8rem;">© 2025 CYBER-ID VERIFIER. RESTRICTED ACCESS.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- THEME TOGGLE LOGIC ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const htmlElement = document.documentElement;
+
+        // Check local storage on load
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        setTheme(savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        });
+
+        function setTheme(theme) {
+            htmlElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            // Update icon
+            if (theme === 'dark') {
+                themeIcon.className = 'fas fa-sun'; // Show sun icon in dark mode (to switch to light)
+            } else {
+                themeIcon.className = 'fas fa-moon'; // Show moon icon in light mode (to switch to dark)
+            }
+        }
+
+        // --- LOGIN FORM HANDLING ---
+        const loginForm = document.getElementById('loginForm');
+        
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            // Hide previous errors
+            document.getElementById('passwordError').classList.remove('show');
+            document.getElementById('loginStatus').classList.remove('show');
+            
+            // Basic validation
+            if (!username || !password) {
+                document.getElementById('passwordError').querySelector('span').textContent = 'Please enter both access ID and security key';
+                document.getElementById('passwordError').classList.add('show');
+                return;
+            }
+            
+            // Show loading state
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AUTHENTICATING<span class="loading-dots"></span>';
+            loginBtn.disabled = true;
+            
+            try {
+                // Send login request to server
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Successful login
+                    loginBtn.innerHTML = '<i class="fas fa-check"></i> ACCESS GRANTED';
+                    loginBtn.style.background = 'linear-gradient(45deg, var(--success), #0da271)';
+                    
+                    // Save theme preference for main app
+                    const currentTheme = htmlElement.getAttribute('data-theme');
+                    
+                    // Redirect to main application
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '/';
+                    }, 800);
+                } else {
+                    // Failed login
+                    document.getElementById('passwordError').querySelector('span').textContent = data.message || 'Invalid credentials. Access denied.';
+                    document.getElementById('passwordError').classList.add('show');
+                    loginBtn.innerHTML = '<i class="fas fa-terminal"></i> INITIATE SESSION';
+                    loginBtn.disabled = false;
+                    
+                    // Add shake animation to form
+                    loginForm.style.animation = 'shake 0.5s';
+                    setTimeout(() => {
+                        loginForm.style.animation = '';
+                    }, 500);
+                    
+                    // Clear password field
+                    document.getElementById('password').value = '';
+                    document.getElementById('password').focus();
+                }
+            } catch (error) {
+                // Network error
+                document.getElementById('passwordError').querySelector('span').textContent = 'Network error. Please try again.';
+                document.getElementById('passwordError').classList.add('show');
+                loginBtn.innerHTML = '<i class="fas fa-terminal"></i> INITIATE SESSION';
+                loginBtn.disabled = false;
+            }
+        });
+
+        // Add shake animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                20%, 40%, 60%, 80% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Auto-focus username on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('username').focus();
+            
+            // Check if already logged in (optional)
+            fetch('/check-auth')
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/';
+                    }
+                })
+                .catch(() => {
+                    // Ignore errors, stay on login page
+                });
+        });
+
+        // Show/hide password hint on focus
+        document.getElementById('password').addEventListener('focus', () => {
+            document.getElementById('loginStatus').classList.add('show');
+        });
+
+        document.getElementById('password').addEventListener('blur', () => {
+            document.getElementById('loginStatus').classList.remove('show');
+        });
+
+        // Enter key navigation
+        document.getElementById('username').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !document.getElementById('password').value) {
+                e.preventDefault();
+                document.getElementById('password').focus();
+            }
+        });
+
+        document.getElementById('password').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                loginForm.dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,9 +1,9 @@
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, render_template, redirect, make_response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 import cv2
 import numpy as np
 from PIL import Image, ImageEnhance
@@ -11,20 +11,85 @@ import pytesseract
 from pdf2image import convert_from_path
 import re
 import json
-import shutil
+import hashlib
+import secrets
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 
-# ============= CONFIGURATION =============
+# Configuration
 UPLOAD_FOLDER = 'uploads'
-REFERENCE_BASE_FOLDER = 'references'  # Changed from 'reference_licenses'
+REFERENCE_BASE_FOLDER = 'references'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 # Supported document types
 DOCUMENT_TYPES = ['drivers_license', 'national_id']
 DEFAULT_DOC_TYPE = 'drivers_license'
+
+# Secret key for sessions (in production, use a secure random key)
+app.secret_key = secrets.token_hex(32)
+
+# ============= SESSION MANAGEMENT =============
+active_sessions = {}
+SESSION_TIMEOUT = timedelta(hours=1)
+
+# Login credentials (in production, use a database with hashed passwords)
+VALID_CREDENTIALS = {
+    'username': 'admin',
+    'password': 'jethro123'
+}
+
+def generate_session_token(username):
+    """Generate a secure session token"""
+    token = secrets.token_urlsafe(32)
+    active_sessions[token] = {
+        'username': username,
+        'login_time': datetime.now(),
+        'last_activity': datetime.now()
+    }
+    return token
+
+def verify_session(request):
+    """Verify if user has a valid session"""
+    token = request.cookies.get('session_token')
+    
+    if token and token in active_sessions:
+        session_data = active_sessions[token]
+        
+        # Check session timeout
+        if datetime.now() - session_data['last_activity'] > SESSION_TIMEOUT:
+            del active_sessions[token]
+            return False
+        
+        # Update last activity
+        session_data['last_activity'] = datetime.now()
+        return True
+    
+    return False
+
+def cleanup_expired_sessions():
+    """Clean up expired sessions"""
+    current_time = datetime.now()
+    expired_tokens = []
+    
+    for token, session_data in active_sessions.items():
+        if current_time - session_data['last_activity'] > SESSION_TIMEOUT:
+            expired_tokens.append(token)
+    
+    for token in expired_tokens:
+        del active_sessions[token]
+
+# ============= HELPER FUNCTIONS =============
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_reference_folder(document_type):
+    """Get the reference folder for a specific document type"""
+    if document_type not in DOCUMENT_TYPES:
+        return os.path.join(REFERENCE_BASE_FOLDER, DEFAULT_DOC_TYPE)
+    return os.path.join(REFERENCE_BASE_FOLDER, document_type)
 
 # Create necessary directories
 for folder in [UPLOAD_FOLDER, 'static', 'templates']:
@@ -45,23 +110,100 @@ except:
         pass
 
 # ============= GLOBAL REFERENCE STORAGE =============
-# Now we store references per document type
 reference_data = {
     'drivers_license': {'image': None, 'features': None},
     'national_id': {'image': None, 'features': None}
 }
 
-# ============= HELPER FUNCTIONS =============
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# ============= LOGIN & AUTHENTICATION ROUTES =============
+@app.route('/')
+def index():
+    """Serve the main HTML page (protected)"""
+    if not verify_session(request):
+        return redirect('/login')
+    return render_template('index.html')
 
-def get_reference_folder(document_type):
-    """Get the reference folder for a specific document type"""
-    if document_type not in DOCUMENT_TYPES:
-        return os.path.join(REFERENCE_BASE_FOLDER, DEFAULT_DOC_TYPE)
-    return os.path.join(REFERENCE_BASE_FOLDER, document_type)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Handle user login"""
+    if request.method == 'GET':
+        # Check if already logged in
+        if verify_session(request):
+            return redirect('/')
+        return render_template('login.html')
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if username == VALID_CREDENTIALS['username'] and password == VALID_CREDENTIALS['password']:
+            # Create session
+            session_token = generate_session_token(username)
+            
+            response = jsonify({
+                'success': True,
+                'message': 'Login successful',
+                'redirect': '/'
+            })
+            
+            # Set secure cookie
+            response.set_cookie(
+                'session_token',
+                session_token,
+                httponly=True,
+                secure=False,  # Set to True in production with HTTPS
+                samesite='Strict',
+                max_age=3600  # 1 hour
+            )
+            
+            # Cleanup expired sessions
+            cleanup_expired_sessions()
+            
+            return response
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid credentials'
+            }), 401
 
+@app.route('/logout', methods=['POST'])
+def logout():
+    """Handle user logout"""
+    token = request.cookies.get('session_token')
+    if token and token in active_sessions:
+        del active_sessions[token]
+    
+    response = jsonify({'success': True, 'message': 'Logged out successfully'})
+    response.set_cookie('session_token', '', expires=0)
+    return response
+
+@app.route('/check-auth', methods=['GET'])
+def check_auth():
+    """Check if user is authenticated"""
+    if verify_session(request):
+        return jsonify({'authenticated': True, 'username': 'admin'})
+    return jsonify({'authenticated': False}), 401
+
+@app.route('/session-info', methods=['GET'])
+def session_info():
+    """Get session information"""
+    if verify_session(request):
+        token = request.cookies.get('session_token')
+        if token in active_sessions:
+            session_data = active_sessions[token]
+            time_remaining = SESSION_TIMEOUT - (datetime.now() - session_data['last_activity'])
+            
+            return jsonify({
+                'authenticated': True,
+                'username': session_data['username'],
+                'login_time': session_data['login_time'].isoformat(),
+                'session_timeout_minutes': int(time_remaining.total_seconds() / 60)
+            })
+    
+    return jsonify({'authenticated': False}), 401
+
+# ============= FILE PROCESSING FUNCTIONS =============
 def load_reference_license(document_type='drivers_license'):
     """Load reference for specific document type"""
     try:
@@ -488,15 +630,13 @@ def analyze_with_comparison(file_path, document_type='drivers_license'):
     
     return result
 
-# ============= FLASK ROUTES =============
-@app.route('/')
-def index():
-    """Serve the main HTML page"""
-    return render_template('index.html')
-
+# ============= PROTECTED APPLICATION ROUTES =============
 @app.route('/upload-reference', methods=['POST'])
 def upload_reference():
     """Upload a reference document for specific document type"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
     try:
         document_type = request.form.get('document_type', DEFAULT_DOC_TYPE)
         
@@ -567,6 +707,9 @@ def upload_reference():
 @app.route('/check-reference', methods=['GET'])
 def check_reference():
     """Check if reference exists for a specific document type"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
     try:
         document_type = request.args.get('type', DEFAULT_DOC_TYPE)
         
@@ -600,6 +743,9 @@ def check_reference():
 @app.route('/verify', methods=['POST'])
 def verify_license():
     """Verify document using reference comparison"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
     try:
         # Get document type from form or use default
         document_type = request.form.get('document_type', DEFAULT_DOC_TYPE)
@@ -673,6 +819,9 @@ def verify_license():
 @app.route('/get-document-types', methods=['GET'])
 def get_document_types():
     """Get list of available document types"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
     return jsonify({
         'success': True,
         'document_types': DOCUMENT_TYPES,
@@ -685,6 +834,9 @@ def get_document_types():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Enhanced health check with document types"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
     status = {
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
@@ -706,6 +858,9 @@ def health_check():
 @app.route('/reset-all', methods=['POST'])
 def reset_all_references():
     """Reset all references (optional endpoint)"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
     try:
         for doc_type in DOCUMENT_TYPES:
             folder_path = get_reference_folder(doc_type)
@@ -731,6 +886,16 @@ def reset_all_references():
         print(f"Reset error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+# ============= ERROR HANDLERS =============
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('500.html'), 500
+
+# ============= APPLICATION STARTUP =============
 if __name__ == '__main__':
     print("=" * 70)
     print("MULTI-DOCUMENT VERIFICATION SYSTEM v3.0")
@@ -746,7 +911,8 @@ if __name__ == '__main__':
     print("2. Supported formats: JPG, PNG, PDF")
     print("3. Run the application")
     print("4. Open http://localhost:5000 in your browser")
-    print("5. Select document type and upload documents to verify")
+    print("5. Login with credentials: admin / jethro123")
+    print("6. Select document type and upload documents to verify")
     print("\n" + "-" * 70)
     
     # Auto-load references on startup
@@ -769,6 +935,7 @@ if __name__ == '__main__':
     
     print("\n" + "-" * 70)
     print("Starting server on http://localhost:5000")
+    print("Login credentials: admin / jethro123")
     print("Press Ctrl+C to stop the server")
     print("=" * 70)
     
