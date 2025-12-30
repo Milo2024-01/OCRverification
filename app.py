@@ -11,19 +11,29 @@ import pytesseract
 from pdf2image import convert_from_path
 import re
 import json
+import shutil
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 
-# Configuration
+# ============= CONFIGURATION =============
 UPLOAD_FOLDER = 'uploads'
-REFERENCE_FOLDER = 'reference_licenses'
+REFERENCE_BASE_FOLDER = 'references'  # Changed from 'reference_licenses'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
+# Supported document types
+DOCUMENT_TYPES = ['drivers_license', 'national_id']
+DEFAULT_DOC_TYPE = 'drivers_license'
+
 # Create necessary directories
-for folder in [UPLOAD_FOLDER, REFERENCE_FOLDER, 'static', 'templates']:
+for folder in [UPLOAD_FOLDER, 'static', 'templates']:
     os.makedirs(folder, exist_ok=True)
+
+# Create reference folders for each document type
+for doc_type in DOCUMENT_TYPES:
+    folder_path = os.path.join(REFERENCE_BASE_FOLDER, doc_type)
+    os.makedirs(folder_path, exist_ok=True)
 
 # Set Tesseract path
 try:
@@ -34,30 +44,38 @@ except:
     except:
         pass
 
-# Global variables for reference data
-reference_license = None
-reference_features = None
+# ============= GLOBAL REFERENCE STORAGE =============
+# Now we store references per document type
+reference_data = {
+    'drivers_license': {'image': None, 'features': None},
+    'national_id': {'image': None, 'features': None}
+}
 
+# ============= HELPER FUNCTIONS =============
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def load_reference_license():
-    """Load the reference driver's license for comparison"""
-    global reference_license, reference_features
-    
+def get_reference_folder(document_type):
+    """Get the reference folder for a specific document type"""
+    if document_type not in DOCUMENT_TYPES:
+        return os.path.join(REFERENCE_BASE_FOLDER, DEFAULT_DOC_TYPE)
+    return os.path.join(REFERENCE_BASE_FOLDER, document_type)
+
+def load_reference_license(document_type='drivers_license'):
+    """Load reference for specific document type"""
     try:
-        # Check if reference exists
-        reference_files = [f for f in os.listdir(REFERENCE_FOLDER) 
+        folder_path = get_reference_folder(document_type)
+        reference_files = [f for f in os.listdir(folder_path) 
                           if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf'))]
         
         if not reference_files:
-            print("No reference license found in folder.")
+            print(f"No reference found for {document_type}")
             return False
         
         # Use the first reference file found
-        reference_path = os.path.join(REFERENCE_FOLDER, reference_files[0])
-        print(f"Loading reference license from: {reference_path}")
+        reference_path = os.path.join(folder_path, reference_files[0])
+        print(f"Loading {document_type} reference from: {reference_path}")
         
         # Load reference image
         if reference_path.lower().endswith('.pdf'):
@@ -65,29 +83,33 @@ def load_reference_license():
             if images:
                 temp_img_path = os.path.join(tempfile.gettempdir(), 'temp_reference.png')
                 images[0].save(temp_img_path, 'PNG')
-                reference_license = cv2.imread(temp_img_path)
+                reference_data[document_type]['image'] = cv2.imread(temp_img_path)
                 # Clean up temp file
                 if os.path.exists(temp_img_path):
                     os.remove(temp_img_path)
             else:
-                print("Could not process PDF reference")
+                print(f"Could not process PDF reference for {document_type}")
                 return False
         else:
-            reference_license = cv2.imread(reference_path)
+            reference_data[document_type]['image'] = cv2.imread(reference_path)
         
-        if reference_license is None:
-            print("Could not read reference license image")
+        if reference_data[document_type]['image'] is None:
+            print(f"Could not read {document_type} reference image")
             return False
         
         # Extract features from reference
         reference_text = extract_text_from_file(reference_path)
-        reference_features = extract_detailed_features(reference_license, reference_text)
+        reference_data[document_type]['features'] = extract_detailed_features(
+            reference_data[document_type]['image'], 
+            reference_text,
+            document_type
+        )
         
-        print(f"Reference license loaded successfully. Size: {reference_license.shape}")
+        print(f"{document_type} reference loaded successfully. Size: {reference_data[document_type]['image'].shape}")
         return True
         
     except Exception as e:
-        print(f"Error loading reference license: {e}")
+        print(f"Error loading {document_type} reference: {e}")
         return False
 
 def extract_text_from_file(file_path):
@@ -102,19 +124,19 @@ def extract_text_from_file(file_path):
             image = Image.open(file_path)
             # Enhance image for better OCR
             enhancer = ImageEnhance.Contrast(image)
-            enhanced = enhancer.enhance(1.5)  # Reduced from 2.0 to avoid over-enhancement
+            enhanced = enhancer.enhance(1.5)
             text = pytesseract.image_to_string(enhanced)
             return text
     except Exception as e:
         print(f"Text extraction error: {e}")
         return ""
 
-def extract_detailed_features(img, text):
+def extract_detailed_features(img, text, document_type='drivers_license'):
     """Extract detailed features from image and text"""
     features = {}
     
     try:
-        # 1. Image features
+        # 1. Image features (common for all document types)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
         # Basic image properties
@@ -122,7 +144,7 @@ def extract_detailed_features(img, text):
         features['width'] = int(img.shape[1])
         features['aspect_ratio'] = float(img.shape[1] / img.shape[0])
         
-        # Color features (mean and std for each channel)
+        # Color features
         features['color_mean_b'] = float(np.mean(img[:,:,0]))
         features['color_mean_g'] = float(np.mean(img[:,:,1]))
         features['color_mean_r'] = float(np.mean(img[:,:,2]))
@@ -137,14 +159,23 @@ def extract_detailed_features(img, text):
         if text:
             text_lower = text.lower()
             features['text_length'] = int(len(text))
-            features['text'] = str(text)  # Ensure it's a string
+            features['text'] = str(text)
             
-            # Look for common patterns in driver's licenses
-            patterns = {
-                'license_number': r'\b[A-Z]{1,2}\d{6,9}\b',
-                'dates': r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b',
-                'zip_code': r'\b\d{5}(?:-\d{4})?\b',
-            }
+            # Document type specific patterns
+            if document_type == 'drivers_license':
+                patterns = {
+                    'license_number': r'\b[A-Z]{1,2}\d{6,9}\b',
+                    'dates': r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b',
+                    'zip_code': r'\b\d{5}(?:-\d{4})?\b',
+                }
+            elif document_type == 'national_id':
+                patterns = {
+                    'id_number': r'\b\d{8,12}\b',
+                    'dates': r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b',
+                    'national_id_keywords': r'\b(national|id|identification|republic|philippines|ph)\b',
+                }
+            else:
+                patterns = {}
             
             for name, pattern in patterns.items():
                 matches = re.findall(pattern, text, re.IGNORECASE)
@@ -156,8 +187,8 @@ def extract_detailed_features(img, text):
         print(f"Feature extraction error: {e}")
         return features
 
-def compare_with_reference(img, text):
-    """Compare uploaded license with reference license"""
+def compare_with_reference(img, text, document_type='drivers_license'):
+    """Compare uploaded document with reference document"""
     comparison_results = {
         'similarity_score': 0.0,
         'differences': [],
@@ -165,27 +196,29 @@ def compare_with_reference(img, text):
     }
     
     try:
-        if reference_license is None or reference_features is None:
-            if not load_reference_license():
-                comparison_results['differences'].append('No reference license available for comparison')
+        ref_data = reference_data[document_type]
+        if ref_data['image'] is None or ref_data['features'] is None:
+            if not load_reference_license(document_type):
+                comparison_results['differences'].append(f'No {document_type} reference available for comparison')
                 return comparison_results
         
         # Extract features from uploaded image
-        uploaded_features = extract_detailed_features(img, text)
+        uploaded_features = extract_detailed_features(img, text, document_type)
         
         # 1. Compare image properties
         img_similarities = []
+        ref_features = ref_data['features']
         
-        # Size comparison (allow some variation)
-        if 'height' in reference_features and 'height' in uploaded_features:
-            height_diff = abs(reference_features['height'] - uploaded_features['height']) / max(reference_features['height'], 1) * 100
+        # Size comparison
+        if 'height' in ref_features and 'height' in uploaded_features:
+            height_diff = abs(ref_features['height'] - uploaded_features['height']) / max(ref_features['height'], 1) * 100
             if height_diff > 30:
                 comparison_results['differences'].append(f'Height difference: {height_diff:.1f}%')
             img_similarities.append(max(0.0, 100.0 - height_diff))
         
         # Aspect ratio comparison
-        if 'aspect_ratio' in reference_features and 'aspect_ratio' in uploaded_features:
-            ref_ratio = reference_features['aspect_ratio']
+        if 'aspect_ratio' in ref_features and 'aspect_ratio' in uploaded_features:
+            ref_ratio = ref_features['aspect_ratio']
             upload_ratio = uploaded_features['aspect_ratio']
             ratio_diff = abs(ref_ratio - upload_ratio) / max(ref_ratio, 0.01) * 100
             if ratio_diff > 20:
@@ -194,12 +227,12 @@ def compare_with_reference(img, text):
         
         # Color comparison
         color_similarity = 50.0  # Default
-        if all(k in reference_features for k in ['color_mean_b', 'color_mean_g', 'color_mean_r']) and \
+        if all(k in ref_features for k in ['color_mean_b', 'color_mean_g', 'color_mean_r']) and \
            all(k in uploaded_features for k in ['color_mean_b', 'color_mean_g', 'color_mean_r']):
             
-            ref_color = np.array([reference_features['color_mean_b'], 
-                                  reference_features['color_mean_g'], 
-                                  reference_features['color_mean_r']])
+            ref_color = np.array([ref_features['color_mean_b'], 
+                                  ref_features['color_mean_g'], 
+                                  ref_features['color_mean_r']])
             upload_color = np.array([uploaded_features['color_mean_b'], 
                                      uploaded_features['color_mean_g'], 
                                      uploaded_features['color_mean_r']])
@@ -212,8 +245,8 @@ def compare_with_reference(img, text):
         img_similarities.append(color_similarity)
         
         # Sharpness comparison
-        if 'sharpness' in reference_features and 'sharpness' in uploaded_features:
-            sharpness_diff = abs(reference_features['sharpness'] - uploaded_features['sharpness']) / max(reference_features['sharpness'], 1.0) * 100
+        if 'sharpness' in ref_features and 'sharpness' in uploaded_features:
+            sharpness_diff = abs(ref_features['sharpness'] - uploaded_features['sharpness']) / max(ref_features['sharpness'], 1.0) * 100
             if sharpness_diff > 60:
                 comparison_results['differences'].append(f'Sharpness difference: {sharpness_diff:.1f}%')
             img_similarities.append(max(0.0, 100.0 - sharpness_diff))
@@ -221,13 +254,20 @@ def compare_with_reference(img, text):
         # 2. Compare text
         text_similarities = []
         
-        if 'text' in reference_features and 'text' in uploaded_features:
-            ref_text = reference_features['text'].lower()
+        if 'text' in ref_features and 'text' in uploaded_features:
+            ref_text = ref_features['text'].lower()
             upload_text = uploaded_features['text'].lower()
             
-            # Common keywords check
-            common_keywords = ['driver', 'license', 'licence', 'state', 'expires', 'expiration',
-                              'birth', 'dob', 'date of birth', 'issued', 'height', 'weight']
+            # Document type specific keywords
+            if document_type == 'drivers_license':
+                common_keywords = ['driver', 'license', 'licence', 'state', 'expires', 'expiration',
+                                  'birth', 'dob', 'date of birth', 'issued', 'height', 'weight', 'driving']
+            elif document_type == 'national_id':
+                common_keywords = ['national', 'id', 'identification', 'republic', 'philippines',
+                                  'birth', 'dob', 'date of birth', 'address', 'sex', 'gender',
+                                  'civil status', 'blood type', 'signature']
+            else:
+                common_keywords = []
             
             ref_keywords = [kw for kw in common_keywords if kw in ref_text]
             upload_keywords = [kw for kw in common_keywords if kw in upload_text]
@@ -237,11 +277,11 @@ def compare_with_reference(img, text):
                 text_similarities.append(keyword_similarity)
                 
                 if keyword_similarity < 60:
-                    comparison_results['differences'].append(f'Missing important keywords')
+                    comparison_results['differences'].append(f'Missing important {document_type} keywords')
             
             # Text length comparison
-            if 'text_length' in reference_features and 'text_length' in uploaded_features:
-                ref_len = reference_features['text_length']
+            if 'text_length' in ref_features and 'text_length' in uploaded_features:
+                ref_len = ref_features['text_length']
                 upload_len = uploaded_features['text_length']
                 if ref_len > 0 and upload_len > 0:
                     length_similarity = min(ref_len, upload_len) / max(ref_len, upload_len) * 100
@@ -268,17 +308,18 @@ def compare_with_reference(img, text):
         comparison_results['details'] = {
             'image_similarity': f"{img_score:.1f}%",
             'text_similarity': f"{text_score:.1f}%" if text_similarities else "N/A",
-            'overall_similarity': f"{overall_similarity:.1f}%"
+            'overall_similarity': f"{overall_similarity:.1f}%",
+            'document_type': document_type.replace('_', ' ').title()
         }
         
         return comparison_results
         
     except Exception as e:
-        print(f"Comparison error: {e}")
+        print(f"Comparison error for {document_type}: {e}")
         comparison_results['differences'].append(f'Comparison error: {str(e)}')
         return comparison_results
 
-def analyze_with_comparison(file_path):
+def analyze_with_comparison(file_path, document_type='drivers_license'):
     """Main analysis function using reference comparison"""
     
     result = {
@@ -289,7 +330,8 @@ def analyze_with_comparison(file_path):
         'analysis': {},
         'method': 'reference_comparison',
         'comparison_details': {},
-        'has_reference': False
+        'has_reference': False,
+        'document_type': document_type
     }
     
     try:
@@ -313,25 +355,35 @@ def analyze_with_comparison(file_path):
             result['issues'].append('Could not read image file')
             return result
         
-        # Basic validation - is this a driver's license?
+        # Basic validation based on document type
         text = extract_text_from_file(file_path)
         text_lower = text.lower() if text else ""
         
-        license_keywords = ['driver', 'license', 'licence', 'permit', 'dl', 'driving']
-        keyword_count = sum(1 for kw in license_keywords if kw in text_lower)
+        # Document type specific validation
+        if document_type == 'drivers_license':
+            keywords = ['driver', 'license', 'licence', 'permit', 'dl', 'driving']
+            doc_name = "driver's license"
+        elif document_type == 'national_id':
+            keywords = ['national', 'id', 'identification', 'republic', 'philippines']
+            doc_name = "national ID"
+        else:
+            keywords = []
+            doc_name = "document"
         
-        # Check if we have a reference license
-        result['has_reference'] = reference_license is not None
+        keyword_count = sum(1 for kw in keywords if kw in text_lower)
+        
+        # Check if we have a reference document
+        result['has_reference'] = reference_data[document_type]['image'] is not None
         
         if result['has_reference']:
-            # 1. Compare with reference license
-            comparison = compare_with_reference(img, text)
+            # 1. Compare with reference document
+            comparison = compare_with_reference(img, text, document_type)
             result['similarity_score'] = float(comparison['similarity_score'])
             result['comparison_details'] = comparison['details']
             result['issues'].extend(comparison['differences'])
             
             # 2. Run anomaly detection as secondary check
-            features = extract_detailed_features(img, text)
+            features = extract_detailed_features(img, text, document_type)
             anomaly_score = 0.0
             
             # Check image quality
@@ -364,12 +416,12 @@ def analyze_with_comparison(file_path):
             # 4. Determine authenticity
             if keyword_count < 2:
                 result['is_authentic'] = False
-                result['issues'].append('This does not appear to be a driver\'s license document')
+                result['issues'].append(f'This does not appear to be a {doc_name} document')
             elif similarity_confidence >= 70.0 and final_confidence >= 65.0:
                 result['is_authentic'] = True
             elif similarity_confidence >= 60.0 and final_confidence >= 60.0:
                 result['is_authentic'] = True
-                result['issues'].append('Minor differences from reference')
+                result['issues'].append(f'Minor differences from {doc_name} reference')
             else:
                 result['is_authentic'] = False
             
@@ -377,18 +429,19 @@ def analyze_with_comparison(file_path):
             result['analysis'] = {
                 'similarity_to_reference': f"{comparison['similarity_score']:.1f}%",
                 'image_quality': f"{features.get('sharpness', 0)/10:.1f}/10" if 'sharpness' in features else "N/A",
-                'text_analysis': f"{len(text)} characters, {keyword_count} license keywords found",
-                'aspect_ratio': f"{features.get('aspect_ratio', 0):.2f}" if 'aspect_ratio' in features else "N/A"
+                'text_analysis': f"{len(text)} characters, {keyword_count} {doc_name} keywords found",
+                'aspect_ratio': f"{features.get('aspect_ratio', 0):.2f}" if 'aspect_ratio' in features else "N/A",
+                'document_type': doc_name
             }
             
         else:
             # No reference available, use basic validation
             if keyword_count < 2:
-                result['issues'].append('This does not appear to be a driver\'s license document')
+                result['issues'].append(f'This does not appear to be a {doc_name} document')
                 result['confidence'] = 10.0
                 return result
             
-            features = extract_detailed_features(img, text)
+            features = extract_detailed_features(img, text, document_type)
             
             # Simple quality scoring
             quality_score = 0.0
@@ -422,8 +475,8 @@ def analyze_with_comparison(file_path):
             result['analysis'] = {
                 'image_quality': f"{features.get('sharpness', 0)/10:.1f}/10" if 'sharpness' in features else "N/A",
                 'confidence_score': f"{result['confidence']:.1f}%",
-                'text_analysis': f"{len(text)} characters, {keyword_count} license keywords found",
-                'method': 'Basic Validation (No reference)'
+                'text_analysis': f"{len(text)} characters, {keyword_count} {doc_name} keywords found",
+                'method': f'Basic Validation (No {doc_name} reference)'
             }
         
         if not result['issues'] and result['confidence'] > 70.0:
@@ -435,6 +488,7 @@ def analyze_with_comparison(file_path):
     
     return result
 
+# ============= FLASK ROUTES =============
 @app.route('/')
 def index():
     """Serve the main HTML page"""
@@ -442,8 +496,13 @@ def index():
 
 @app.route('/upload-reference', methods=['POST'])
 def upload_reference():
-    """Upload a reference/authentic driver's license via web interface"""
+    """Upload a reference document for specific document type"""
     try:
+        document_type = request.form.get('document_type', DEFAULT_DOC_TYPE)
+        
+        if document_type not in DOCUMENT_TYPES:
+            return jsonify({'success': False, 'message': 'Invalid document type'}), 400
+        
         if 'reference_file' not in request.files:
             return jsonify({'success': False, 'message': 'No file uploaded'}), 400
         
@@ -463,9 +522,12 @@ def upload_reference():
         if file_size > MAX_FILE_SIZE:
             return jsonify({'success': False, 'message': f'File too large ({file_size/1024/1024:.1f}MB > 5MB)'}), 400
         
-        # Clear existing reference files
-        for f in os.listdir(REFERENCE_FOLDER):
-            file_path = os.path.join(REFERENCE_FOLDER, f)
+        # Get the folder for this document type
+        folder_path = get_reference_folder(document_type)
+        
+        # Clear existing reference files in this folder
+        for f in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, f)
             try:
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
@@ -474,29 +536,29 @@ def upload_reference():
         
         # Save reference file
         filename = secure_filename(reference_file.filename)
-        filepath = os.path.join(REFERENCE_FOLDER, filename)
+        filepath = os.path.join(folder_path, filename)
         reference_file.save(filepath)
         
         # Try to load the reference
-        global reference_license, reference_features
-        reference_license = None
-        reference_features = None
+        reference_data[document_type]['image'] = None
+        reference_data[document_type]['features'] = None
         
-        success = load_reference_license()
+        success = load_reference_license(document_type)
         
         if success:
             return jsonify({
                 'success': True,
-                'message': 'Reference license uploaded and loaded successfully',
+                'message': f'{document_type.replace("_", " ").title()} reference uploaded and loaded successfully',
                 'filename': filename,
                 'size': file_size,
-                'has_reference': True
+                'has_reference': True,
+                'document_type': document_type
             })
         else:
             # Delete the file if it couldn't be loaded
             if os.path.exists(filepath):
                 os.remove(filepath)
-            return jsonify({'success': False, 'message': 'Could not process reference license. Please check file format.'}), 400
+            return jsonify({'success': False, 'message': f'Could not process {document_type} reference. Please check file format.'}), 400
         
     except Exception as e:
         print(f"Reference upload error: {str(e)}")
@@ -504,23 +566,29 @@ def upload_reference():
 
 @app.route('/check-reference', methods=['GET'])
 def check_reference():
-    """Check if reference license exists and is loaded"""
+    """Check if reference exists for a specific document type"""
     try:
-        reference_files = [f for f in os.listdir(REFERENCE_FOLDER) 
+        document_type = request.args.get('type', DEFAULT_DOC_TYPE)
+        
+        if document_type not in DOCUMENT_TYPES:
+            return jsonify({'success': False, 'message': 'Invalid document type'}), 400
+        
+        folder_path = get_reference_folder(document_type)
+        reference_files = [f for f in os.listdir(folder_path) 
                           if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf'))]
         
         has_reference_file = len(reference_files) > 0
         
         # Always try to load reference if file exists
         if has_reference_file:
-            global reference_license, reference_features
-            reference_loaded = load_reference_license()
+            reference_loaded = load_reference_license(document_type)
         else:
             reference_loaded = False
         
         return jsonify({
             'success': True,
             'has_reference': reference_loaded,
+            'document_type': document_type,
             'reference_file': reference_files[0] if reference_files else None,
             'reference_loaded': reference_loaded
         })
@@ -531,8 +599,14 @@ def check_reference():
 
 @app.route('/verify', methods=['POST'])
 def verify_license():
-    """Verify driver's license using reference comparison"""
+    """Verify document using reference comparison"""
     try:
+        # Get document type from form or use default
+        document_type = request.form.get('document_type', DEFAULT_DOC_TYPE)
+        
+        if document_type not in DOCUMENT_TYPES:
+            return jsonify({'success': False, 'message': 'Invalid document type'}), 400
+        
         if 'license_file' not in request.files:
             return jsonify({'success': False, 'message': 'No file uploaded'}), 400
         
@@ -558,35 +632,37 @@ def verify_license():
             license_file.save(license_path)
             
             # Analyze using reference comparison
-            result = analyze_with_comparison(license_path)
+            result = analyze_with_comparison(license_path, document_type)
             
             # Add metadata
             result['success'] = True
             result['timestamp'] = datetime.now().isoformat()
             
             # Provide helpful message based on result
+            doc_name = document_type.replace('_', ' ').title()
+            
             if result['has_reference']:
                 if result['is_authentic']:
                     if result['confidence'] > 85:
-                        result['message'] = 'High confidence - License closely matches reference'
+                        result['message'] = f'High confidence - {doc_name} closely matches reference'
                     elif result['confidence'] > 75:
-                        result['message'] = 'Good confidence - License similar to reference'
+                        result['message'] = f'Good confidence - {doc_name} similar to reference'
                     elif result['confidence'] > 65:
-                        result['message'] = 'Moderate confidence - Some differences from reference'
+                        result['message'] = f'Moderate confidence - Some differences from {doc_name.lower()} reference'
                     else:
-                        result['message'] = 'Low confidence - Multiple differences detected'
+                        result['message'] = f'Low confidence - Multiple differences detected'
                 else:
                     if result['confidence'] < 40:
-                        result['message'] = 'High suspicion - Significant differences from reference'
+                        result['message'] = f'High suspicion - Significant differences from {doc_name.lower()} reference'
                     elif result['confidence'] < 55:
-                        result['message'] = 'Moderate suspicion - Does not match reference pattern'
+                        result['message'] = f'Moderate suspicion - Does not match {doc_name.lower()} pattern'
                     else:
-                        result['message'] = 'Suspicious - Multiple issues compared to reference'
+                        result['message'] = f'Suspicious - Multiple issues compared to {doc_name.lower()} reference'
             else:
                 if result['is_authentic']:
-                    result['message'] = 'Basic check passed - No reference available for comparison'
+                    result['message'] = f'Basic check passed - No {doc_name.lower()} reference available for comparison'
                 else:
-                    result['message'] = 'Failed basic check - No reference available'
+                    result['message'] = f'Failed basic check - No {doc_name.lower()} reference available'
             
             return jsonify(result)
             
@@ -594,61 +670,102 @@ def verify_license():
         print(f"Verification error: {str(e)}")
         return jsonify({'success': False, 'message': f'Internal server error: {str(e)}'}), 500
 
+@app.route('/get-document-types', methods=['GET'])
+def get_document_types():
+    """Get list of available document types"""
+    return jsonify({
+        'success': True,
+        'document_types': DOCUMENT_TYPES,
+        'active_types': {
+            'drivers_license': True,
+            'national_id': True
+        }
+    })
+
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
-    reference_files = [f for f in os.listdir(REFERENCE_FOLDER) 
-                      if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf'))]
-    
-    global reference_license
-    return jsonify({
+    """Enhanced health check with document types"""
+    status = {
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'service': 'Driver\'s License Verification System',
-        'version': '2.0.1',
-        'method': 'Reference-based Comparison',
-        'has_reference_file': len(reference_files) > 0,
-        'reference_loaded': reference_license is not None,
-        'reference_file': reference_files[0] if reference_files else None,
-        'features': [
-            'Reference license comparison',
-            'Image similarity analysis',
-            'Text pattern matching',
-            'Anomaly detection as backup'
-        ]
-    })
+        'service': 'Multi-ID Verification System',
+        'version': '3.0.0',
+        'supported_documents': DOCUMENT_TYPES,
+        'references_loaded': {}
+    }
+    
+    # Check each document type
+    for doc_type in DOCUMENT_TYPES:
+        folder_path = get_reference_folder(doc_type)
+        files = [f for f in os.listdir(folder_path) 
+                if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf'))]
+        status['references_loaded'][doc_type] = len(files) > 0
+    
+    return jsonify(status)
+
+@app.route('/reset-all', methods=['POST'])
+def reset_all_references():
+    """Reset all references (optional endpoint)"""
+    try:
+        for doc_type in DOCUMENT_TYPES:
+            folder_path = get_reference_folder(doc_type)
+            # Clear folder
+            for filename in os.listdir(folder_path):
+                file_path = os.path.join(folder_path, filename)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except Exception as e:
+                    print(f"Error deleting {file_path}: {e}")
+            
+            # Reset in-memory data
+            reference_data[doc_type] = {'image': None, 'features': None}
+        
+        return jsonify({
+            'success': True,
+            'message': 'All references cleared',
+            'cleared_types': DOCUMENT_TYPES
+        })
+        
+    except Exception as e:
+        print(f"Reset error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 if __name__ == '__main__':
     print("=" * 70)
-    print("DRIVER'S LICENSE VERIFICATION SYSTEM")
+    print("MULTI-DOCUMENT VERIFICATION SYSTEM v3.0")
     print("=" * 70)
-    print("Method: Reference-based Comparison")
+    print("Supported Document Types:")
+    for doc_type in DOCUMENT_TYPES:
+        print(f"  • {doc_type.replace('_', ' ').title()}")
     print("\nINSTRUCTIONS:")
-    print("1. Place your AUTHENTIC driver's license in the 'reference_licenses' folder")
+    print("1. Place authentic documents in respective reference folders:")
+    for doc_type in DOCUMENT_TYPES:
+        folder = get_reference_folder(doc_type)
+        print(f"   - {doc_type.replace('_', ' ').title()}: {folder}")
     print("2. Supported formats: JPG, PNG, PDF")
     print("3. Run the application")
     print("4. Open http://localhost:5000 in your browser")
-    print("5. Upload licenses to verify against your reference")
+    print("5. Select document type and upload documents to verify")
     print("\n" + "-" * 70)
     
-    # Auto-load reference license on startup
-    reference_files = [f for f in os.listdir(REFERENCE_FOLDER) 
-                      if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf'))]
-    
-    if reference_files:
-        print(f"\n✓ Found {len(reference_files)} reference file(s)")
-        print(f"  Main reference: {reference_files[0]}")
+    # Auto-load references on startup
+    for doc_type in DOCUMENT_TYPES:
+        folder_path = get_reference_folder(doc_type)
+        reference_files = [f for f in os.listdir(folder_path) 
+                          if f.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf'))]
         
-        if load_reference_license():
-            print("✓ Reference license loaded successfully")
-            print(f"✓ System ready for verification")
+        if reference_files:
+            print(f"\n✓ Found {len(reference_files)} reference file(s) for {doc_type.replace('_', ' ').title()}")
+            print(f"  Main reference: {reference_files[0]}")
+            
+            if load_reference_license(doc_type):
+                print(f"  ✓ {doc_type.replace('_', ' ').title()} reference loaded successfully")
+            else:
+                print(f"  ✗ Could not load {doc_type.replace('_', ' ').title()} reference")
         else:
-            print("✗ Could not load reference license")
-            print("  Please check if the file is a valid image/PDF format")
-    else:
-        print("\n⚠ No reference license found in 'reference_licenses' folder!")
-        print("  System will use basic validation only")
-        print("  For better accuracy, add your authentic license to the folder")
+            print(f"\n⚠ No reference found for {doc_type.replace('_', ' ').title()}")
+            print(f"  Add authentic document to: {folder_path}")
     
     print("\n" + "-" * 70)
     print("Starting server on http://localhost:5000")
