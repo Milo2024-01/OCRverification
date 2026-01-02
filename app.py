@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, make_response
+from flask import Flask, request, jsonify, render_template, redirect, make_response, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
@@ -13,6 +13,14 @@ import re
 import json
 import hashlib
 import secrets
+import io
+import shutil
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as ReportLabImage
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+import difflib
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
@@ -20,11 +28,12 @@ CORS(app)
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 REFERENCE_BASE_FOLDER = 'references'
+REPORTS_FOLDER = 'reports'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 # Supported document types
-DOCUMENT_TYPES = ['drivers_license', 'national_id']
+DOCUMENT_TYPES = ['drivers_license', 'national_id', 'passport']
 DEFAULT_DOC_TYPE = 'drivers_license'
 
 # Secret key for sessions (in production, use a secure random key)
@@ -92,7 +101,7 @@ def get_reference_folder(document_type):
     return os.path.join(REFERENCE_BASE_FOLDER, document_type)
 
 # Create necessary directories
-for folder in [UPLOAD_FOLDER, 'static', 'templates']:
+for folder in [UPLOAD_FOLDER, REPORTS_FOLDER, 'static', 'templates']:
     os.makedirs(folder, exist_ok=True)
 
 # Create reference folders for each document type
@@ -112,7 +121,8 @@ except:
 # ============= GLOBAL REFERENCE STORAGE =============
 reference_data = {
     'drivers_license': {'image': None, 'features': None},
-    'national_id': {'image': None, 'features': None}
+    'national_id': {'image': None, 'features': None},
+    'passport': {'image': None, 'features': None}
 }
 
 # ============= LOGIN & AUTHENTICATION ROUTES =============
@@ -316,6 +326,13 @@ def extract_detailed_features(img, text, document_type='drivers_license'):
                     'dates': r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b',
                     'national_id_keywords': r'\b(national|id|identification|republic|philippines|ph)\b',
                 }
+            elif document_type == 'passport':
+                patterns = {
+                    'passport_number': r'\b[A-Z]{1,2}\d{6,9}\b',
+                    'dates': r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b',
+                    'passport_keywords': r'\b(passport|p[.]?no|republic|philippines|ph|diplomatic|official|ordinary|type)\b',
+                    'mrz_code': r'\b[A-Z0-9<]{9,50}\b',  # Machine Readable Zone patterns
+                }
             else:
                 patterns = {}
             
@@ -351,23 +368,23 @@ def compare_with_reference(img, text, document_type='drivers_license'):
         img_similarities = []
         ref_features = ref_data['features']
         
-        # Size comparison
+        # Size comparison (more lenient - 50% difference threshold)
         if 'height' in ref_features and 'height' in uploaded_features:
             height_diff = abs(ref_features['height'] - uploaded_features['height']) / max(ref_features['height'], 1) * 100
-            if height_diff > 30:
+            if height_diff > 50:  # Increased from 30%
                 comparison_results['differences'].append(f'Height difference: {height_diff:.1f}%')
-            img_similarities.append(max(0.0, 100.0 - height_diff))
+            img_similarities.append(max(0.0, 100.0 - min(height_diff, 100.0)))
         
-        # Aspect ratio comparison
+        # Aspect ratio comparison (more lenient - 30% difference threshold)
         if 'aspect_ratio' in ref_features and 'aspect_ratio' in uploaded_features:
             ref_ratio = ref_features['aspect_ratio']
             upload_ratio = uploaded_features['aspect_ratio']
             ratio_diff = abs(ref_ratio - upload_ratio) / max(ref_ratio, 0.01) * 100
-            if ratio_diff > 20:
+            if ratio_diff > 30:  # Increased from 20%
                 comparison_results['differences'].append(f'Aspect ratio difference: {ratio_diff:.1f}%')
-            img_similarities.append(max(0.0, 100.0 - ratio_diff))
+            img_similarities.append(max(0.0, 100.0 - min(ratio_diff, 100.0)))
         
-        # Color comparison
+        # Color comparison (more lenient - 60% difference threshold)
         color_similarity = 50.0  # Default
         if all(k in ref_features for k in ['color_mean_b', 'color_mean_g', 'color_mean_r']) and \
            all(k in uploaded_features for k in ['color_mean_b', 'color_mean_g', 'color_mean_r']):
@@ -381,17 +398,20 @@ def compare_with_reference(img, text, document_type='drivers_license'):
             
             color_diff = np.mean(np.abs(ref_color - upload_color))
             color_similarity = max(0.0, 100.0 - color_diff)
-            if color_diff > 40:
+            if color_diff > 60:  # Increased from 40%
                 comparison_results['differences'].append('Significant color difference detected')
         
         img_similarities.append(color_similarity)
         
-        # Sharpness comparison
+        # Sharpness comparison (more lenient)
         if 'sharpness' in ref_features and 'sharpness' in uploaded_features:
-            sharpness_diff = abs(ref_features['sharpness'] - uploaded_features['sharpness']) / max(ref_features['sharpness'], 1.0) * 100
-            if sharpness_diff > 60:
-                comparison_results['differences'].append(f'Sharpness difference: {sharpness_diff:.1f}%')
-            img_similarities.append(max(0.0, 100.0 - sharpness_diff))
+            ref_sharp = ref_features['sharpness']
+            upload_sharp = uploaded_features['sharpness']
+            if ref_sharp > 0 and upload_sharp > 0:
+                sharpness_diff = abs(ref_sharp - upload_sharp) / max(ref_sharp, upload_sharp) * 100
+                if sharpness_diff > 80:  # Increased from 60%
+                    comparison_results['differences'].append(f'Sharpness difference: {sharpness_diff:.1f}%')
+                img_similarities.append(max(0.0, 100.0 - min(sharpness_diff, 100.0)))
         
         # 2. Compare text
         text_similarities = []
@@ -400,40 +420,72 @@ def compare_with_reference(img, text, document_type='drivers_license'):
             ref_text = ref_features['text'].lower()
             upload_text = uploaded_features['text'].lower()
             
-            # Document type specific keywords
+            # Document type specific keywords (expanded lists)
             if document_type == 'drivers_license':
                 common_keywords = ['driver', 'license', 'licence', 'state', 'expires', 'expiration',
-                                  'birth', 'dob', 'date of birth', 'issued', 'height', 'weight', 'driving']
+                                  'birth', 'dob', 'date of birth', 'issued', 'height', 'weight', 'driving',
+                                  'class', 'restriction', 'endorsement', 'address']
             elif document_type == 'national_id':
                 common_keywords = ['national', 'id', 'identification', 'republic', 'philippines',
                                   'birth', 'dob', 'date of birth', 'address', 'sex', 'gender',
-                                  'civil status', 'blood type', 'signature']
+                                  'civil status', 'blood type', 'signature', 'citizen', 'phil']
+            elif document_type == 'passport':
+                common_keywords = ['passport', 'republic', 'philippines', 'ph', 'type', 
+                                  'country code', 'surname', 'given names', 'nationality',
+                                  'date of birth', 'sex', 'place of birth', 'date of issue',
+                                  'authority', 'date of expiry', 'mrz', 'machine readable', 'travel']
             else:
                 common_keywords = []
             
-            ref_keywords = [kw for kw in common_keywords if kw in ref_text]
-            upload_keywords = [kw for kw in common_keywords if kw in upload_text]
+            # More flexible keyword matching
+            ref_keywords = []
+            upload_keywords = []
+            
+            for kw in common_keywords:
+                if kw in ref_text:
+                    ref_keywords.append(kw)
+                # Check for partial matches in uploaded text
+                for word in upload_text.split():
+                    if kw in word or word in kw:
+                        if len(kw) > 3 and len(word) > 3:
+                            upload_keywords.append(kw)
+                            break
             
             if ref_keywords:
-                keyword_similarity = len(set(ref_keywords) & set(upload_keywords)) / max(len(ref_keywords), 1) * 100
+                # Calculate intersection (allowing partial matches)
+                intersection = set(ref_keywords) & set(upload_keywords)
+                keyword_similarity = len(intersection) / max(len(ref_keywords), 1) * 100
                 text_similarities.append(keyword_similarity)
                 
-                if keyword_similarity < 60:
+                if keyword_similarity < 40:  # Reduced from 60%
                     comparison_results['differences'].append(f'Missing important {document_type} keywords')
             
-            # Text length comparison
+            # Text length comparison (more lenient)
             if 'text_length' in ref_features and 'text_length' in uploaded_features:
                 ref_len = ref_features['text_length']
                 upload_len = uploaded_features['text_length']
                 if ref_len > 0 and upload_len > 0:
                     length_similarity = min(ref_len, upload_len) / max(ref_len, upload_len) * 100
                     text_similarities.append(length_similarity)
-                    if length_similarity < 50:
+                    if length_similarity < 40:  # Reduced from 50%
                         comparison_results['differences'].append(f'Text length significantly different')
+            
+            # Add simple text overlap score
+            if len(ref_text) > 10 and len(upload_text) > 10:
+                # Calculate word overlap
+                ref_words = set(ref_text.split())
+                upload_words = set(upload_text.split())
+                overlap = len(ref_words & upload_words) / max(len(ref_words), 1) * 100
+                text_similarities.append(min(overlap, 100.0))
         
-        # 3. Calculate overall similarity score
+        # 3. Calculate overall similarity score with better weighting
         if img_similarities:
-            img_score = float(np.mean(img_similarities))
+            # Give more weight to color and aspect ratio
+            weights = [0.2, 0.3, 0.3, 0.2]  # height, aspect, color, sharpness
+            if len(weights) == len(img_similarities):
+                img_score = float(np.average(img_similarities, weights=weights[:len(img_similarities)]))
+            else:
+                img_score = float(np.mean(img_similarities))
         else:
             img_score = 50.0
         
@@ -442,8 +494,8 @@ def compare_with_reference(img, text, document_type='drivers_license'):
         else:
             text_score = 50.0
         
-        # Weighted average (60% image, 40% text)
-        overall_similarity = img_score * 0.6 + text_score * 0.4
+        # Weighted average (50% image, 50% text) - more balanced
+        overall_similarity = img_score * 0.5 + text_score * 0.5
         comparison_results['similarity_score'] = float(overall_similarity)
         
         # Add detailed comparison
@@ -501,18 +553,32 @@ def analyze_with_comparison(file_path, document_type='drivers_license'):
         text = extract_text_from_file(file_path)
         text_lower = text.lower() if text else ""
         
-        # Document type specific validation
+        # Document type specific validation with more flexible keywords
         if document_type == 'drivers_license':
-            keywords = ['driver', 'license', 'licence', 'permit', 'dl', 'driving']
+            keywords = ['driver', 'license', 'licence', 'permit', 'dl', 'driving', 'licensee', 'lic', 'drivers', 'identification']
             doc_name = "driver's license"
         elif document_type == 'national_id':
-            keywords = ['national', 'id', 'identification', 'republic', 'philippines']
+            keywords = ['national', 'id', 'identification', 'republic', 'philippines', 'ph', 'filipino', 'citizen', 'card']
             doc_name = "national ID"
+        elif document_type == 'passport':
+            keywords = ['passport', 'republic', 'philippines', 'ph', 'type', 'country', 'code', 'travel', 'document', 'book']
+            doc_name = "passport"
         else:
             keywords = []
             doc_name = "document"
         
-        keyword_count = sum(1 for kw in keywords if kw in text_lower)
+        # More flexible keyword matching (partial matches)
+        keyword_count = 0
+        for kw in keywords:
+            if kw in text_lower:
+                keyword_count += 1
+            # Also check for similar words
+            elif len(kw) > 4:
+                # Check for partial matches (OCR errors might miss characters)
+                words_in_text = text_lower.split()
+                for word in words_in_text:
+                    if len(word) > 3 and difflib.SequenceMatcher(None, kw, word).ratio() > 0.7:
+                        keyword_count += 0.5  # Partial match
         
         # Check if we have a reference document
         result['has_reference'] = reference_data[document_type]['image'] is not None
@@ -522,48 +588,79 @@ def analyze_with_comparison(file_path, document_type='drivers_license'):
             comparison = compare_with_reference(img, text, document_type)
             result['similarity_score'] = float(comparison['similarity_score'])
             result['comparison_details'] = comparison['details']
-            result['issues'].extend(comparison['differences'])
+            
+            # Filter out minor differences for the issues list
+            significant_issues = []
+            for diff in comparison['differences']:
+                # Only include significant issues
+                if 'difference' in diff.lower():
+                    # Extract percentage from difference message
+                    import re
+                    perc_match = re.search(r'(\d+\.?\d*)%', diff)
+                    if perc_match:
+                        perc = float(perc_match.group(1))
+                        if perc > 50:  # Only show differences > 50%
+                            significant_issues.append(diff)
+                    else:
+                        significant_issues.append(diff)
+                elif 'significant' in diff.lower() or 'missing' in diff.lower():
+                    significant_issues.append(diff)
+            
+            result['issues'].extend(significant_issues)
             
             # 2. Run anomaly detection as secondary check
             features = extract_detailed_features(img, text, document_type)
             anomaly_score = 0.0
             
-            # Check image quality
-            if 'sharpness' in features and features['sharpness'] < 30:
-                anomaly_score += 25.0
-                result['issues'].append('Very low image sharpness')
-            elif 'sharpness' in features and features['sharpness'] < 50:
-                anomaly_score += 15.0
-                result['issues'].append('Low image sharpness')
+            # Check image quality (more lenient)
+            if 'sharpness' in features:
+                if features['sharpness'] < 20:
+                    anomaly_score += 30.0
+                    result['issues'].append('Very low image sharpness')
+                elif features['sharpness'] < 40:
+                    anomaly_score += 15.0
+                    result['issues'].append('Low image sharpness')
+                elif features['sharpness'] > 200:
+                    anomaly_score += 10.0  # Too sharp might indicate digital manipulation
             
-            if 'contrast' in features and features['contrast'] < 20:
-                anomaly_score += 20.0
-                result['issues'].append('Very low contrast')
-            elif 'contrast' in features and features['contrast'] < 35:
-                anomaly_score += 10.0
-                result['issues'].append('Low contrast')
+            if 'contrast' in features:
+                if features['contrast'] < 15:
+                    anomaly_score += 20.0
+                    result['issues'].append('Very low contrast')
+                elif features['contrast'] < 25:
+                    anomaly_score += 8.0
+                    # Don't add to issues for minor contrast problems
             
-            # 3. Calculate overall confidence
+            # 3. Calculate overall confidence with more balanced weights
             similarity_confidence = float(comparison['similarity_score'])
             anomaly_adjustment = max(0.0, 100.0 - anomaly_score)
             
-            # Combined confidence
-            if keyword_count >= 2:
-                final_confidence = similarity_confidence * 0.7 + anomaly_adjustment * 0.3
+            # Calculate keyword presence score (0-100)
+            keyword_score = min(100.0, (keyword_count / max(len(keywords) * 0.5, 1)) * 100)
+            
+            # Combined confidence with more weight on similarity
+            # 50% similarity, 30% keywords, 20% anomaly adjustment
+            if keyword_count >= 1:  # Reduced from 2
+                final_confidence = (similarity_confidence * 0.5 + 
+                                  keyword_score * 0.3 + 
+                                  anomaly_adjustment * 0.2)
             else:
-                final_confidence = similarity_confidence * 0.5 + anomaly_adjustment * 0.5
-                
+                # If no keywords at all, be more strict
+                final_confidence = similarity_confidence * 0.3 + anomaly_adjustment * 0.2
+            
             result['confidence'] = float(final_confidence)
             
-            # 4. Determine authenticity
-            if keyword_count < 2:
+            # 4. Determine authenticity with more reasonable thresholds
+            if keyword_count < 0.5:  # Almost no keywords
                 result['is_authentic'] = False
-                result['issues'].append(f'This does not appear to be a {doc_name} document')
-            elif similarity_confidence >= 70.0 and final_confidence >= 65.0:
+                result['issues'].append(f'Document lacks key {doc_name} identifiers')
+            elif similarity_confidence >= 60.0 and final_confidence >= 55.0:
                 result['is_authentic'] = True
-            elif similarity_confidence >= 60.0 and final_confidence >= 60.0:
+                if similarity_confidence < 70.0:
+                    result['issues'].append(f'Acceptable similarity to {doc_name} reference')
+            elif similarity_confidence >= 50.0 and final_confidence >= 50.0 and keyword_count >= 2:
                 result['is_authentic'] = True
-                result['issues'].append(f'Minor differences from {doc_name} reference')
+                result['issues'].append(f'Moderate similarity to {doc_name} reference')
             else:
                 result['is_authentic'] = False
             
@@ -571,14 +668,15 @@ def analyze_with_comparison(file_path, document_type='drivers_license'):
             result['analysis'] = {
                 'similarity_to_reference': f"{comparison['similarity_score']:.1f}%",
                 'image_quality': f"{features.get('sharpness', 0)/10:.1f}/10" if 'sharpness' in features else "N/A",
-                'text_analysis': f"{len(text)} characters, {keyword_count} {doc_name} keywords found",
+                'text_analysis': f"{len(text)} characters, {keyword_count:.1f} {doc_name} keywords found",
                 'aspect_ratio': f"{features.get('aspect_ratio', 0):.2f}" if 'aspect_ratio' in features else "N/A",
-                'document_type': doc_name
+                'document_type': doc_name,
+                'keyword_score': f"{keyword_score:.1f}%"
             }
             
         else:
             # No reference available, use basic validation
-            if keyword_count < 2:
+            if keyword_count < 1:
                 result['issues'].append(f'This does not appear to be a {doc_name} document')
                 result['confidence'] = 10.0
                 return result
@@ -588,47 +686,387 @@ def analyze_with_comparison(file_path, document_type='drivers_license'):
             # Simple quality scoring
             quality_score = 0.0
             
-            if 'sharpness' in features and features['sharpness'] > 50:
-                quality_score += 30.0
-            elif 'sharpness' in features and features['sharpness'] > 20:
-                quality_score += 15.0
+            if 'sharpness' in features:
+                if features['sharpness'] > 40:
+                    quality_score += 40.0
+                elif features['sharpness'] > 20:
+                    quality_score += 25.0
+                else:
+                    quality_score += 10.0
             
-            if 'contrast' in features and features['contrast'] > 30:
-                quality_score += 20.0
-            elif 'contrast' in features and features['contrast'] > 15:
-                quality_score += 10.0
+            if 'contrast' in features:
+                if features['contrast'] > 25:
+                    quality_score += 30.0
+                elif features['contrast'] > 15:
+                    quality_score += 20.0
+                else:
+                    quality_score += 10.0
             
             if 'aspect_ratio' in features:
                 aspect = features['aspect_ratio']
-                if 1.4 <= aspect <= 1.8:
-                    quality_score += 25.0
-                elif 1.3 <= aspect <= 1.9:
-                    quality_score += 15.0
+                # Accept wider range for different document formats
+                if 1.3 <= aspect <= 2.0:
+                    quality_score += 30.0
+                elif 1.2 <= aspect <= 2.2:
+                    quality_score += 20.0
+                else:
+                    quality_score += 5.0
             
-            # Add text score
-            text_score = min(100.0, keyword_count * 15.0)
-            quality_score += text_score
+            # Add text score (more weight on keywords)
+            text_score = min(100.0, (keyword_count / max(len(keywords) * 0.3, 1)) * 100)
+            quality_score = quality_score * 0.4 + text_score * 0.6
             
             result['confidence'] = min(100.0, quality_score)
             
-            # Without reference, be more conservative
-            result['is_authentic'] = result['confidence'] >= 60.0 and keyword_count >= 2
+            # Without reference, be more lenient
+            result['is_authentic'] = result['confidence'] >= 50.0 and keyword_count >= 1
             
             result['analysis'] = {
                 'image_quality': f"{features.get('sharpness', 0)/10:.1f}/10" if 'sharpness' in features else "N/A",
                 'confidence_score': f"{result['confidence']:.1f}%",
-                'text_analysis': f"{len(text)} characters, {keyword_count} {doc_name} keywords found",
-                'method': f'Basic Validation (No {doc_name} reference)'
+                'text_analysis': f"{len(text)} characters, {keyword_count:.1f} {doc_name} keywords found",
+                'method': f'Basic Validation (No {doc_name} reference)',
+                'keyword_score': f"{text_score:.1f}%"
             }
         
-        if not result['issues'] and result['confidence'] > 70.0:
+        # Only add "No significant issues" if confidence is good AND no other issues
+        if not result['issues'] and result['confidence'] > 60.0:
             result['issues'].append('No significant issues detected')
+        elif result['confidence'] > 70.0 and result['is_authentic']:
+            # If authentic with high confidence but has minor issues, add positive note
+            if len(result['issues']) <= 2:
+                result['issues'].append('Minor variations detected, but document appears authentic')
         
     except Exception as e:
         result['issues'].append(f'Analysis error: {str(e)}')
         result['confidence'] = 0.0
+        print(f"Analysis error: {e}")
     
     return result
+
+# ============= REPORT GENERATION =============
+@app.route('/generate-report', methods=['POST'])
+def generate_report():
+    """Generate and download PDF report of verification results"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        
+        # Create the PDF document
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        # Container for the 'Flowable' objects
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Add custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#00f3ff'),
+            spaceAfter=30,
+            alignment=1  # Center aligned
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#2563eb'),
+            spaceAfter=12
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=6
+        )
+        
+        # Title
+        story.append(Paragraph("CYBER-ID VERIFIER v3.1 - ANALYSIS REPORT", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Report Metadata
+        report_id = hashlib.md5(str(datetime.now()).encode()).hexdigest()[:8].upper()
+        story.append(Paragraph(f"Report ID: {report_id}", normal_style))
+        story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", normal_style))
+        story.append(Paragraph(f"System: Multi-Document Verification System", normal_style))
+        story.append(Spacer(1, 20))
+        
+        # Document Information
+        story.append(Paragraph("DOCUMENT INFORMATION", heading_style))
+        
+        doc_type = data.get('document_type', 'Unknown').replace('_', ' ').title()
+        doc_info = [
+            ["Document Type:", doc_type],
+            ["Analysis Date:", datetime.now().strftime('%Y-%m-%d')],
+            ["Analysis Time:", datetime.now().strftime('%H:%M:%S')],
+            ["Reference Used:", "Yes" if data.get('has_reference') else "No"],
+            ["Method:", data.get('method', 'Reference Comparison')]
+        ]
+        
+        doc_table = Table(doc_info, colWidths=[2*inch, 3*inch])
+        doc_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0f9ff')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e5e7eb'))
+        ]))
+        story.append(doc_table)
+        story.append(Spacer(1, 20))
+        
+        # Verification Results
+        story.append(Paragraph("VERIFICATION RESULTS", heading_style))
+        
+        is_authentic = data.get('is_authentic', False)
+        authenticity = "✓ AUTHENTIC" if is_authentic else "✗ SUSPICIOUS"
+        authenticity_color = colors.HexColor('#059669') if is_authentic else colors.HexColor('#dc2626')
+        
+        confidence = data.get('confidence', 0)
+        similarity = data.get('similarity_score', 0)
+        
+        results_info = [
+            ["Status:", authenticity],
+            ["Confidence Score:", f"{confidence:.1f}%"],
+            ["Similarity Score:", f"{similarity:.1f}%"],
+            ["Overall Verdict:", "DOCUMENT AUTHENTIC" if is_authentic else "DOCUMENT SUSPICIOUS"]
+        ]
+        
+        results_table = Table(results_info, colWidths=[2*inch, 3*inch])
+        results_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0fdf4') if is_authentic else colors.HexColor('#fef2f2')),
+            ('TEXTCOLOR', (1, 0), (1, 0), authenticity_color),
+            ('TEXTCOLOR', (1, 3), (1, 3), authenticity_color),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e5e7eb'))
+        ]))
+        story.append(results_table)
+        story.append(Spacer(1, 20))
+        
+        # Detailed Analysis
+        if 'analysis' in data and data['analysis']:
+            story.append(Paragraph("DETAILED ANALYSIS", heading_style))
+            
+            analysis_items = []
+            for key, value in data['analysis'].items():
+                analysis_items.append([key.replace('_', ' ').title() + ":", str(value)])
+            
+            if analysis_items:
+                analysis_table = Table(analysis_items, colWidths=[2*inch, 3*inch])
+                analysis_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#f1f5f9'))
+                ]))
+                story.append(analysis_table)
+                story.append(Spacer(1, 20))
+        
+        # Issues/Anomalies
+        if 'issues' in data and data['issues']:
+            story.append(Paragraph("DETECTED ISSUES & ANOMALIES", heading_style))
+            
+            for i, issue in enumerate(data['issues'], 1):
+                if issue != 'No significant issues detected':
+                    story.append(Paragraph(f"{i}. {issue}", normal_style))
+            
+            story.append(Spacer(1, 20))
+        
+        # Comparison Details
+        if 'comparison_details' in data and data['comparison_details']:
+            story.append(Paragraph("COMPARISON METRICS", heading_style))
+            
+            comparison_items = []
+            for key, value in data['comparison_details'].items():
+                comparison_items.append([key.replace('_', ' ').title() + ":", str(value)])
+            
+            if comparison_items:
+                comparison_table = Table(comparison_items, colWidths=[2*inch, 3*inch])
+                comparison_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#f1f5f9'))
+                ]))
+                story.append(comparison_table)
+                story.append(Spacer(1, 20))
+        
+        # System Information
+        story.append(Paragraph("SYSTEM INFORMATION", heading_style))
+        system_info = [
+            ["Software Version:", "CYBER-ID VERIFIER v3.1"],
+            ["Report Format:", "Official Verification Document"],
+            ["Generated By:", "Administrator"],
+            ["Purpose:", "Document Authentication Verification"],
+            ["Confidentiality:", "Level 3 - Restricted"]
+        ]
+        
+        system_table = Table(system_info, colWidths=[2*inch, 3*inch])
+        system_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8fafc')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e2e8f0'))
+        ]))
+        story.append(system_table)
+        story.append(Spacer(1, 30))
+        
+        # Footer/Disclaimer
+        disclaimer = """
+        <b>DISCLAIMER:</b> This report is generated automatically by the Cyber-ID Verifier system. 
+        The results are based on computer analysis and should be used as a reference only. 
+        Final authentication decisions should be made by trained personnel. 
+        This document is confidential and intended for authorized personnel only.
+        """
+        story.append(Paragraph(disclaimer, ParagraphStyle(
+            'Disclaimer',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=colors.grey,
+            alignment=1
+        )))
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Get PDF data
+        pdf_data = buffer.getvalue()
+        buffer.close()
+        
+        # Save to reports folder
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        doc_type = data.get('document_type', 'document').replace('_', '')
+        status = "authentic" if is_authentic else "suspicious"
+        filename = f"cyberid_verification_{doc_type}_{status}_{timestamp}.pdf"
+        filepath = os.path.join(REPORTS_FOLDER, filename)
+        
+        # Save file to reports folder
+        with open(filepath, 'wb') as f:
+            f.write(pdf_data)
+        
+        # Create response
+        response = make_response(pdf_data)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        # Log the report generation
+        print(f"Report generated: {filename} - {doc_type} - Authentic: {is_authentic}")
+        
+        return response
+        
+    except Exception as e:
+        print(f"Report generation error: {e}")
+        return jsonify({'success': False, 'message': f'Report generation failed: {str(e)}'}), 500
+
+@app.route('/list-reports', methods=['GET'])
+def list_reports():
+    """List all generated reports"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    try:
+        reports = []
+        for filename in os.listdir(REPORTS_FOLDER):
+            if filename.endswith('.pdf'):
+                filepath = os.path.join(REPORTS_FOLDER, filename)
+                file_stats = os.stat(filepath)
+                reports.append({
+                    'filename': filename,
+                    'size': file_stats.st_size,
+                    'created': datetime.fromtimestamp(file_stats.st_ctime).isoformat(),
+                    'path': f'/download-report/{filename}'
+                })
+        
+        return jsonify({
+            'success': True,
+            'reports': sorted(reports, key=lambda x: x['created'], reverse=True),
+            'count': len(reports)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/download-report/<filename>')
+def download_report(filename):
+    """Download a specific report"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    try:
+        # Security check to prevent directory traversal
+        if '..' in filename or filename.startswith('/'):
+            return jsonify({'success': False, 'message': 'Invalid filename'}), 400
+        
+        filepath = os.path.join(REPORTS_FOLDER, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({'success': False, 'message': 'Report not found'}), 404
+        
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/cleanup-reports', methods=['POST'])
+def cleanup_reports():
+    """Clean up reports older than 30 days"""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    try:
+        cutoff_date = datetime.now() - timedelta(days=30)
+        deleted_count = 0
+        
+        for filename in os.listdir(REPORTS_FOLDER):
+            if filename.endswith('.pdf'):
+                filepath = os.path.join(REPORTS_FOLDER, filename)
+                file_mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
+                
+                if file_mtime < cutoff_date:
+                    os.remove(filepath)
+                    deleted_count += 1
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cleaned up {deleted_count} old reports',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # ============= PROTECTED APPLICATION ROUTES =============
 @app.route('/upload-reference', methods=['POST'])
@@ -795,8 +1233,10 @@ def verify_license():
                         result['message'] = f'Good confidence - {doc_name} similar to reference'
                     elif result['confidence'] > 65:
                         result['message'] = f'Moderate confidence - Some differences from {doc_name.lower()} reference'
+                    elif result['confidence'] > 55:
+                        result['message'] = f'Low confidence - Multiple differences detected but appears authentic'
                     else:
-                        result['message'] = f'Low confidence - Multiple differences detected'
+                        result['message'] = f'Very low confidence - Significant differences detected'
                 else:
                     if result['confidence'] < 40:
                         result['message'] = f'High suspicion - Significant differences from {doc_name.lower()} reference'
@@ -809,6 +1249,16 @@ def verify_license():
                     result['message'] = f'Basic check passed - No {doc_name.lower()} reference available for comparison'
                 else:
                     result['message'] = f'Failed basic check - No {doc_name.lower()} reference available'
+            
+            # Debug information
+            print(f"\n=== VERIFICATION RESULT ===")
+            print(f"Document Type: {document_type}")
+            print(f"Authentic: {result['is_authentic']}")
+            print(f"Confidence: {result['confidence']:.1f}%")
+            print(f"Similarity: {result['similarity_score']:.1f}%")
+            print(f"Has Reference: {result['has_reference']}")
+            print(f"Issues: {result['issues']}")
+            print("=========================\n")
             
             return jsonify(result)
             
@@ -827,7 +1277,8 @@ def get_document_types():
         'document_types': DOCUMENT_TYPES,
         'active_types': {
             'drivers_license': True,
-            'national_id': True
+            'national_id': True,
+            'passport': True
         }
     })
 
@@ -841,7 +1292,7 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'service': 'Multi-ID Verification System',
-        'version': '3.0.0',
+        'version': '3.1.0',
         'supported_documents': DOCUMENT_TYPES,
         'references_loaded': {}
     }
@@ -889,20 +1340,26 @@ def reset_all_references():
 # ============= ERROR HANDLERS =============
 @app.errorhandler(404)
 def not_found_error(error):
-    return render_template('404.html'), 404
+    return jsonify({'success': False, 'message': 'Page not found'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    return render_template('500.html'), 500
+    return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 # ============= APPLICATION STARTUP =============
 if __name__ == '__main__':
     print("=" * 70)
-    print("MULTI-DOCUMENT VERIFICATION SYSTEM v3.0")
+    print("MULTI-DOCUMENT VERIFICATION SYSTEM v3.1")
+    print("IMPROVED DETECTION VERSION")
     print("=" * 70)
     print("Supported Document Types:")
     for doc_type in DOCUMENT_TYPES:
         print(f"  • {doc_type.replace('_', ' ').title()}")
+    print("\nIMPROVEMENTS:")
+    print("• Lowered similarity thresholds for better detection")
+    print("• Added partial keyword matching")
+    print("• More lenient image comparison")
+    print("• Better OCR error handling")
     print("\nINSTRUCTIONS:")
     print("1. Place authentic documents in respective reference folders:")
     for doc_type in DOCUMENT_TYPES:
@@ -913,6 +1370,7 @@ if __name__ == '__main__':
     print("4. Open http://localhost:5000 in your browser")
     print("5. Login with credentials: admin / jethro123")
     print("6. Select document type and upload documents to verify")
+    print("7. Generate PDF reports for documentation")
     print("\n" + "-" * 70)
     
     # Auto-load references on startup

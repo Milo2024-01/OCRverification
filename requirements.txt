@@ -21,3 +21,7 @@ scikit-learn==1.3.0
 # Remove these if causing issues
 # tensorflow==2.13.0
 # deepface==0.0.79
+
+# report dependencies
+reportlab==4.0.4 
+fpdf2==2.7.5
