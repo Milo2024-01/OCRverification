@@ -4,36 +4,524 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Loan Application</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            /* Light mode variables */
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-secondary: #64748b;
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --border-color: #e2e8f0;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --gradient: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            --success: #10b981;
+            --error: #ef4444;
+            --input-bg: #ffffff;
+            --toggle-bg: #e2e8f0;
+            --toggle-knob: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            /* Dark mode variables */
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --primary: #60a5fa;
+            --primary-dark: #3b82f6;
+            --border-color: #334155;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.25);
+            --gradient: linear-gradient(90deg, #60a5fa, #a78bfa);
+            --success: #34d399;
+            --error: #f87171;
+            --input-bg: #0f172a;
+            --toggle-bg: #334155;
+            --toggle-knob: #1e293b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 14px 16px;
+            background-color: var(--input-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 16px;
+            color: var(--text-color);
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 640px) {
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+        }
+
+        .button-group {
+            display: flex;
+            gap: 16px;
+            margin-top: 32px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-color);
+            border: 2px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .theme-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            user-select: none;
+        }
+
+        .theme-toggle-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            background-color: var(--toggle-bg);
+            padding: 8px 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            width: 90px;
+            height: 40px;
+            position: relative;
+        }
+
+        .toggle-switch {
+            width: 24px;
+            height: 24px;
+            background-color: var(--toggle-knob);
+            border-radius: 50%;
+            position: absolute;
+            left: 8px;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        [data-theme="dark"] .toggle-switch {
+            transform: translateX(50px);
+        }
+
+        .icon {
+            font-size: 12px;
+        }
+
+        .icon-sun {
+            color: #f59e0b;
+            position: absolute;
+            left: 10px;
+        }
+
+        .icon-moon {
+            color: #60a5fa;
+            position: absolute;
+            right: 10px;
+        }
+
+        .loan-info {
+            margin-top: 32px;
+            padding: 20px;
+            background-color: var(--input-bg);
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .loan-info h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: var(--text-color);
+        }
+
+        .loan-info p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 50px;
+        }
+
+        [data-theme="dark"] .form-select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        }
+
+        .amount-display {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 8px;
+        }
+
+        .amount-input-container {
+            position: relative;
+        }
+
+        .amount-input-container::before {
+            content: '₱';
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: 600;
+            color: var(--text-secondary);
+            z-index: 1;
+        }
+
+        .amount-input {
+            padding-left: 36px !important;
+        }
+    </style>
 </head>
 <body>
-<div style="max-width:720px;margin:40px auto;padding:24px;background:#0b1220;border-radius:8px;border:1px solid rgba(0,243,255,0.06);color:#e6eef8;font-family:Inter, sans-serif;">
-    <h2 style="color:var(--primary);font-family:'Chakra Petch',sans-serif;">Loan Application</h2>
-    <form action="/loan-application" method="post" id="loan-form">
-        <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px">
-            <label>Full Name
-                <input name="full_name" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
-            </label>
-            <label>Contact Email or Phone
-                <input name="contact" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
-            </label>
-            <label>Loan Amount (PHP)
-                <input name="amount" type="number" min="1" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
-            </label>
-            <label>Repayment Months
-                <input name="months" type="number" min="1" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
-            </label>
-            <label>Annual Interest Rate (%)
-                <input name="interest_rate" type="number" step="0.01" min="0" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
-            </label>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-hand-holding-usd"></i> Loan Application</h1>
+            <div class="theme-toggle-container">
+                <span class="theme-toggle-label" id="theme-label">Dark Mode</span>
+                <div class="theme-toggle" id="theme-toggle">
+                    <i class="fas fa-sun icon icon-sun"></i>
+                    <div class="toggle-switch">
+                        <i class="fas fa-circle icon" style="color: var(--primary);"></i>
+                    </div>
+                    <i class="fas fa-moon icon icon-moon"></i>
+                </div>
+            </div>
         </div>
-        <!-- Import from verification removed to prevent auto-fill -->
-        <div style="display:flex;gap:12px;margin-top:16px">
-            <button type="submit" style="padding:12px 18px;background:linear-gradient(90deg,#00f3ff,#ff00e6);border:none;border-radius:6px;color:#001; font-weight:700;">Submit Application</button>
-            <a href="/" style="padding:12px 18px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#e6eef8;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;">Back</a>
+
+        <div class="card">
+            <form action="/loan-application" method="post" id="loan-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="full_name" class="form-input" placeholder="Enter your full name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Contact Number</label>
+                        <input type="tel" name="contact" class="form-input" placeholder="+63 912 345 6789" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Loan Amount (PHP)</label>
+                        <div class="amount-input-container">
+                            <input type="number" name="amount" class="form-input amount-input" min="1000" step="1000" placeholder="10000" required>
+                        </div>
+                        <div class="amount-display" id="amount-display">₱0</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Repayment Period</label>
+                        <select name="months" class="form-select" required>
+                            <option value="" disabled selected>Select repayment period</option>
+                            <option value="6">6 months</option>
+                            <option value="12">12 months</option>
+                            <option value="24">24 months</option>
+                            <option value="36">36 months</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Annual Interest Rate (%)</label>
+                    <input type="number" name="interest_rate" class="form-input" min="0" max="30" step="0.1" placeholder="5.0" required>
+                    <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary)">
+                        Move the slider to adjust: <input type="range" id="interest-slider" min="0" max="30" step="0.5" value="5" style="width: 100%; margin-top: 5px;">
+                    </div>
+                </div>
+
+                <div class="loan-info">
+                    <h3><i class="fas fa-info-circle"></i> Loan Information</h3>
+                    <p id="loan-summary">Please fill in the loan details to see your estimated monthly payment and total repayment amount.</p>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Submit Application
+                    </button>
+                    <a href="index.html" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Home
+                    </a>
+                </div>
+            </form>
         </div>
-    </form>
-</div>
-<!-- Import functionality removed to prevent automatic or manual autofill of loan form -->
+
+        <footer>
+            <p>© 2023 SecureLoans Inc. All rights reserved.</p>
+            <p style="margin-top: 8px; font-size: 12px;">Your data is protected with bank-level encryption.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeLabel = document.getElementById('theme-label');
+        const html = document.documentElement; 
+        
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            // Update the theme attribute
+            html.setAttribute('data-theme', newTheme);
+            
+            // Update the label text
+            themeLabel.textContent = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode';
+            
+            // Save preference to localStorage
+            localStorage.setItem('theme', newTheme);
+            
+            console.log('Theme changed to:', newTheme);
+        });
+        
+        // Check for saved theme preference on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                html.setAttribute('data-theme', savedTheme);
+                themeLabel.textContent = savedTheme === 'dark' ? 'Dark Mode' : 'Light Mode';
+            } else {
+                // Default to dark mode
+                html.setAttribute('data-theme', 'dark');
+                themeLabel.textContent = 'Dark Mode';
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+        
+        // Loan amount display formatting
+        const amountInput = document.querySelector('input[name="amount"]');
+        const amountDisplay = document.getElementById('amount-display');
+        
+        amountInput.addEventListener('input', function() {
+            const value = parseFloat(this.value) || 0;
+            amountDisplay.textContent = '₱' + value.toLocaleString('en-PH');
+            updateLoanSummary();
+        });
+        
+        // Interest rate slider sync
+        const interestInput = document.querySelector('input[name="interest_rate"]');
+        const interestSlider = document.getElementById('interest-slider');
+        
+        interestInput.addEventListener('input', function() {
+            interestSlider.value = this.value;
+            updateLoanSummary();
+        });
+        
+        interestSlider.addEventListener('input', function() {
+            interestInput.value = this.value;
+            updateLoanSummary();
+        });
+        
+        // Repayment period change
+        const monthsSelect = document.querySelector('select[name="months"]');
+        monthsSelect.addEventListener('change', updateLoanSummary);
+        
+        // Function to calculate and update loan summary
+        function updateLoanSummary() {
+            const amount = parseFloat(amountInput.value) || 0;
+            const months = parseInt(monthsSelect.value) || 12;
+            const annualRate = parseFloat(interestInput.value) || 5;
+            
+            if (amount <= 0 || months <= 0 || annualRate < 0) {
+                document.getElementById('loan-summary').textContent = 
+                    'Please fill in the loan details to see your estimated monthly payment and total repayment amount.';
+                return;
+            }
+            
+            // Calculate monthly interest rate
+            const monthlyRate = annualRate / 100 / 12;
+            
+            // Calculate monthly payment using loan formula
+            const monthlyPayment = monthlyRate === 0 
+                ? amount / months 
+                : (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));
+            
+            // Calculate total repayment
+            const totalRepayment = monthlyPayment * months;
+            const totalInterest = totalRepayment - amount;
+            
+            // Format and display results
+            document.getElementById('loan-summary').innerHTML = `
+                <strong>Loan Amount:</strong> ₱${amount.toLocaleString('en-PH')}<br>
+                <strong>Repayment Period:</strong> ${months} months<br>
+                <strong>Annual Interest Rate:</strong> ${annualRate.toFixed(2)}%<br>
+                <strong>Estimated Monthly Payment:</strong> <span style="color:var(--success)">₱${monthlyPayment.toFixed(2).toLocaleString('en-PH')}</span><br>
+                <strong>Total Repayment:</strong> ₱${totalRepayment.toFixed(2).toLocaleString('en-PH')}<br>
+                <strong>Total Interest:</strong> ₱${totalInterest.toFixed(2).toLocaleString('en-PH')}
+            `;
+        }
+        
+        // Initialize the loan summary
+        updateLoanSummary();
+        
+        // Form submission
+        document.getElementById('loan-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Form validation
+            const amount = parseFloat(amountInput.value) || 0;
+            const contact = document.querySelector('input[name="contact"]').value;
+            const name = document.querySelector('input[name="full_name"]').value;
+            
+            if (amount < 1000) {
+                alert('Minimum loan amount is ₱1,000');
+                return;
+            }
+            
+            if (!contact.match(/^(\+63|09)\d{9}$/)) {
+                alert('Please enter a valid Philippine contact number (e.g., +63 912 345 6789 or 0912 345 6789)');
+                return;
+            }
+            
+            // Show success message
+            alert(`Thank you ${name}! Your loan application for ₱${amount.toLocaleString('en-PH')} has been submitted successfully. We will contact you at ${contact} within 24 hours.`);
+            
+            // Reset form
+            setTimeout(() => {
+                this.reset();
+                interestSlider.value = 5;
+                amountDisplay.textContent = '₱0';
+                updateLoanSummary();
+            }, 2000);
+        });
+    </script>
 </body>
 </html>

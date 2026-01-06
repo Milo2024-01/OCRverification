@@ -659,7 +659,7 @@
                 <button class="btn btn-secondary" id="history-btn" onclick="showReportHistory()">
                     <i class="fas fa-history"></i> REPORT HISTORY
                 </button>
-                <button class="btn btn-primary" id="proceed-loan-btn" style="display:none;margin-left:8px">
+                <button type="button" class="btn btn-primary" id="proceed-loan-btn" style="display:none;margin-left:8px">
                     <i class="fas fa-arrow-right"></i> PROCEED TO LOAN APPLICATION
                 </button>
             </div>
@@ -775,6 +775,7 @@
         const licenseInput = document.getElementById('license-file');
         const uploadArea = document.getElementById('license-upload-area');
         const resultSection = document.getElementById('result-section');
+        let multiVerifiedAllOk = false;
         let uploadedLicense = null;
 
         function initDocumentTypeSelection() {
@@ -1152,6 +1153,7 @@
                 const allOk = results.every(r => r.ok === true);
                 const proceedBtn = document.getElementById('proceed-loan-btn');
                 if (allOk) {
+                    multiVerifiedAllOk = true;
                     showToast('All documents verified. You may proceed to the loan application.', 'success');
                     if (proceedBtn) {
                         proceedBtn.style.display = 'inline-flex';
@@ -1162,6 +1164,10 @@
                         setTimeout(() => window.location.href = '/loan-application', 900);
                     }
                     return;
+                } else {
+                    // ensure proceed is hidden if not all ok
+                    multiVerifiedAllOk = false;
+                    if (proceedBtn) { proceedBtn.style.display = 'none'; proceedBtn.disabled = true; }
                 }
 
                 // Show summary
@@ -1182,6 +1188,10 @@
         // Attach multi-verify handlers
         document.getElementById('verify-all-btn')?.addEventListener('click', runMultiVerify);
         document.getElementById('proceed-loan-btn')?.addEventListener('click', () => {
+            if (!multiVerifiedAllOk) {
+                showToast('Please verify all documents before proceeding.', 'error');
+                return;
+            }
             window.location.href = '/loan-application';
         });
         document.getElementById('reset-multi-btn')?.addEventListener('click', () => {
@@ -1194,6 +1204,10 @@
                 if (status) { status.textContent = ''; status.style.color = ''; }
             });
             clearResults();
+            // hide proceed button when resetting
+            const pb = document.getElementById('proceed-loan-btn');
+            if (pb) { pb.style.display = 'none'; pb.disabled = true; }
+            multiVerifiedAllOk = false;
         });
 
         // --- DISPLAY RESULTS ---

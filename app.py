@@ -988,14 +988,14 @@ def generate_report():
         print(f"Report generation error: {e}")
         return jsonify({'success': False, 'message': f'Report generation failed: {str(e)}'}), 500
 
-    @app.route('/loan-application', methods=['GET', 'POST'])
-    def loan_application():
-        """Render loan application form (GET) and handle submission (POST)."""
-        if not verify_session(request):
-            return jsonify({'message': 'Authentication required', 'success': False}), 401
+@app.route('/loan-application', methods=['GET', 'POST'])
+def loan_application():
+    """Render loan application form (GET) and handle submission (POST)."""
+    if not verify_session(request):
+        return jsonify({'message': 'Authentication required', 'success': False}), 401
 
-        if request.method == 'GET':
-            return render_template('loan_application.html')
+    if request.method == 'GET':
+        return render_template('loan_application.html')
 
         # POST: process form
         full_name = request.form.get('full_name', '').strip()
