@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Loan Application</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div style="max-width:720px;margin:40px auto;padding:24px;background:#0b1220;border-radius:8px;border:1px solid rgba(0,243,255,0.06);color:#e6eef8;font-family:Inter, sans-serif;">
+    <h2 style="color:var(--primary);font-family:'Chakra Petch',sans-serif;">Loan Application</h2>
+    <form action="/loan-application" method="post" id="loan-form">
+        <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px">
+            <label>Full Name
+                <input name="full_name" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
+            </label>
+            <label>Contact Email or Phone
+                <input name="contact" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
+            </label>
+            <label>Loan Amount (PHP)
+                <input name="amount" type="number" min="1" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
+            </label>
+            <label>Repayment Months
+                <input name="months" type="number" min="1" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
+            </label>
+            <label>Annual Interest Rate (%)
+                <input name="interest_rate" type="number" step="0.01" min="0" required style="width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06)">
+            </label>
+        </div>
+        <!-- Import from verification removed to prevent auto-fill -->
+        <div style="display:flex;gap:12px;margin-top:16px">
+            <button type="submit" style="padding:12px 18px;background:linear-gradient(90deg,#00f3ff,#ff00e6);border:none;border-radius:6px;color:#001; font-weight:700;">Submit Application</button>
+            <a href="/" style="padding:12px 18px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#e6eef8;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;">Back</a>
+        </div>
+    </form>
+</div>
+<!-- Import functionality removed to prevent automatic or manual autofill of loan form -->
+</body>
+</html>

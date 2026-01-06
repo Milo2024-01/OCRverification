@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Loan Confirmation</title>
+</head>
+<body style="font-family:Inter, sans-serif; background:#07111a;color:#e6eef8;display:flex;align-items:center;justify-content:center;height:100vh;">
+    <div style="max-width:640px;padding:24px;background:#071827;border-radius:8px;border:1px solid rgba(0,243,255,0.06)">
+        <h2 style="color:var(--primary);font-family:'Chakra Petch',sans-serif;">Application Received</h2>
+        <div style="margin-top:12px">
+            <p><strong>Name:</strong> {{ full_name }}</p>
+            <p><strong>Contact:</strong> {{ contact }}</p>
+            <p><strong>Loan Amount:</strong> {{ amount }}</p>
+            <p><strong>Months:</strong> {{ months }}</p>
+            <p><strong>Interest Rate (annual):</strong> {{ interest_rate }}%</p>
+            <p><strong>Monthly Payment:</strong> {{ monthly_payment }}</p>
+        </div>
+        <div style="margin-top:18px">
+            <a href="/" style="padding:10px 14px;background:linear-gradient(90deg,#00f3ff,#ff00e6);color:#001;border-radius:6px;text-decoration:none;font-weight:700;">Back to Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>

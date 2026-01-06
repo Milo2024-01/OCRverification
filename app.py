@@ -981,12 +981,78 @@ def generate_report():
         
         # Log the report generation
         print(f"Report generated: {filename} - {doc_type} - Authentic: {is_authentic}")
-        
+
         return response
-        
+
     except Exception as e:
         print(f"Report generation error: {e}")
         return jsonify({'success': False, 'message': f'Report generation failed: {str(e)}'}), 500
+
+    @app.route('/loan-application', methods=['GET', 'POST'])
+    def loan_application():
+        """Render loan application form (GET) and handle submission (POST)."""
+        if not verify_session(request):
+            return jsonify({'message': 'Authentication required', 'success': False}), 401
+
+        if request.method == 'GET':
+            return render_template('loan_application.html')
+
+        # POST: process form
+        full_name = request.form.get('full_name', '').strip()
+        contact = request.form.get('contact', '').strip()
+        try:
+            amount = float(request.form.get('amount', '0'))
+        except:
+            amount = 0.0
+        try:
+            months = int(request.form.get('months', '0'))
+        except:
+            months = 0
+        try:
+            annual_rate = float(request.form.get('interest_rate', '0'))
+        except:
+            annual_rate = 0.0
+
+        # Calculate monthly payment using annuity formula
+        monthly_payment = 0.0
+        if months > 0:
+            r = annual_rate / 100.0 / 12.0
+            if r > 0:
+                monthly_payment = (amount * r) / (1 - (1 + r) ** (-months))
+            else:
+                monthly_payment = amount / months if months else 0.0
+
+        monthly_payment_str = f"PHP {monthly_payment:,.2f}"
+
+        # Persist application to reports folder
+        try:
+            os.makedirs(REPORTS_FOLDER, exist_ok=True)
+            app_data = {
+                'timestamp': datetime.now().isoformat(),
+                'full_name': full_name,
+                'contact': contact,
+                'amount': amount,
+                'months': months,
+                'interest_rate': annual_rate,
+                'monthly_payment': monthly_payment,
+            }
+            # include verification JSON if provided
+            ver_json = request.form.get('verification_json')
+            if ver_json:
+                try:
+                    app_data['verification'] = json.loads(ver_json)
+                except:
+                    app_data['verification_raw'] = ver_json
+
+            filename = os.path.join(REPORTS_FOLDER, f"loan_application_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(app_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print('Failed to save loan application:', e)
+
+        return render_template('loan_confirmation.html', full_name=full_name, contact=contact,
+                               amount=f"PHP {amount:,.2f}", months=months,
+                               interest_rate=annual_rate, monthly_payment=monthly_payment_str)
 
 @app.route('/list-reports', methods=['GET'])
 def list_reports():
