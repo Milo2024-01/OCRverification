@@ -479,7 +479,10 @@
             <span>ADMIN</span>
             <div class="session-time" id="sessionTimer">SESSION: 60:00</div>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <a href="/dashboard" class="theme-btn" title="Back to Dashboard" style="display:inline-flex; align-items:center; justify-content:center;">
+                <i class="fas fa-tachometer-alt" style="font-size:1rem;"></i>
+            </a>
             <button class="theme-btn" id="theme-toggle" title="Toggle Light/Dark Mode">
                 <i class="fas fa-sun" id="theme-icon"></i>
             </button>
@@ -612,16 +615,16 @@
             <h3 style="margin-bottom: 20px; color: var(--text-main);">
                 <i class="fas fa-radar"></i> DOCUMENT INPUT
             </h3>
-
+            
             <div class="file-upload-area" id="license-upload-area">
                 <i class="fas fa-cloud-bolt upload-icon"></i>
                 <div class="upload-text">DROP TARGET FILE OR CLICK TO BROWSE</div>
                 <div class="upload-hint">SUPPORTED PROTOCOLS: JPG, PNG, PDF (LIMIT: 5MB)</div>
                 <input type="file" id="license-file" class="file-input" accept="image/*,.pdf">
             </div>
-
+            <!--  
             <div class="preview-container" id="license-preview"></div>
-
+            -->
             <!-- MULTI DOCUMENT UPLOAD (Drivers, National ID, Passport) -->
             <h4 style="margin-top:18px; color:var(--text-main);">Multi Document Upload (analyze simultaneously)</h4>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:12px; margin-top:10px;">
@@ -667,6 +670,7 @@
             <!-- RESULTS SECTION -->
             <div id="result-section"></div>
         </div>
+        <footer style="text-align:center;color:#94a3b8;padding:16px;border-top:1px solid rgba(255,255,255,0.02);">© Reserved 2025</footer>
     </div>
 
     <script>

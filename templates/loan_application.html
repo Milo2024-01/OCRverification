@@ -327,15 +327,20 @@
 
         <div class="card">
             <form action="/loan-application" method="post" id="loan-form">
+                {% if error %}
+                <div style="background:rgba(255,0,0,0.06);border-left:4px solid var(--error);padding:12px;margin-bottom:16px;color:var(--error)">
+                    {{ error }}
+                </div>
+                {% endif %}
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Full Name</label>
-                        <input type="text" name="full_name" class="form-input" placeholder="Enter your full name" required>
+                        <input type="text" name="full_name" class="form-input" placeholder="Enter your full name" required value="{{ full_name|default('') }}">
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">Contact Number</label>
-                        <input type="tel" name="contact" class="form-input" placeholder="+63 912 345 6789" required>
+                        <input type="tel" name="contact" class="form-input" placeholder="+63 912 345 6789" required value="{{ contact|default('') }}">
                     </div>
                 </div>
 
@@ -343,7 +348,7 @@
                     <div class="form-group">
                         <label class="form-label">Loan Amount (PHP)</label>
                         <div class="amount-input-container">
-                            <input type="number" name="amount" class="form-input amount-input" min="1000" step="1000" placeholder="10000" required>
+                            <input type="number" name="amount" class="form-input amount-input" min="1000" step="1000" placeholder="10000" required value="{{ amount|default('') }}">
                         </div>
                         <div class="amount-display" id="amount-display">₱0</div>
                     </div>
@@ -351,20 +356,20 @@
                     <div class="form-group">
                         <label class="form-label">Repayment Period</label>
                         <select name="months" class="form-select" required>
-                            <option value="" disabled selected>Select repayment period</option>
-                            <option value="6">6 months</option>
-                            <option value="12">12 months</option>
-                            <option value="24">24 months</option>
-                            <option value="36">36 months</option>
+                            <option value="" disabled {% if not months %}selected{% endif %}>Select repayment period</option>
+                            <option value="6" {% if (months|default(0)|int) == 6 %}selected{% endif %}>6 months</option>
+                            <option value="12" {% if (months|default(0)|int) == 12 %}selected{% endif %}>12 months</option>
+                            <option value="24" {% if (months|default(0)|int) == 24 %}selected{% endif %}>24 months</option>
+                            <option value="36" {% if (months|default(0)|int) == 36 %}selected{% endif %}>36 months</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Annual Interest Rate (%)</label>
-                    <input type="number" name="interest_rate" class="form-input" min="0" max="30" step="0.1" placeholder="5.0" required>
+                    <input type="number" name="interest_rate" class="form-input" min="0" max="30" step="0.1" placeholder="5.0" required value="{{ interest_rate|default(5) }}">
                     <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary)">
-                        Move the slider to adjust: <input type="range" id="interest-slider" min="0" max="30" step="0.5" value="5" style="width: 100%; margin-top: 5px;">
+                        Move the slider to adjust: <input type="range" id="interest-slider" min="0" max="30" step="0.5" value="{{ interest_rate|default(5) }}" style="width: 100%; margin-top: 5px;">
                     </div>
                 </div>
 
@@ -377,7 +382,7 @@
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-paper-plane"></i> Submit Application
                     </button>
-                    <a href="index.html" class="btn btn-secondary">
+                    <a href="/" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> Back to Home
                     </a>
                 </div>
@@ -385,7 +390,7 @@
         </div>
 
         <footer>
-            <p>© 2023 SecureLoans Inc. All rights reserved.</p>
+            <p>© Reserved 2025</p>
             <p style="margin-top: 8px; font-size: 12px;">Your data is protected with bank-level encryption.</p>
         </footer>
     </div>
@@ -492,35 +497,39 @@
         // Initialize the loan summary
         updateLoanSummary();
         
-        // Form submission
+        // Form submission: validate client-side and allow normal POST to server
         document.getElementById('loan-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
             // Form validation
             const amount = parseFloat(amountInput.value) || 0;
-            const contact = document.querySelector('input[name="contact"]').value;
-            const name = document.querySelector('input[name="full_name"]').value;
-            
+            const contact = document.querySelector('input[name="contact"]').value.trim();
+            const name = document.querySelector('input[name="full_name"]').value.trim();
+
             if (amount < 1000) {
+                e.preventDefault();
                 alert('Minimum loan amount is ₱1,000');
                 return;
             }
-            
+
             if (!contact.match(/^(\+63|09)\d{9}$/)) {
-                alert('Please enter a valid Philippine contact number (e.g., +63 912 345 6789 or 0912 345 6789)');
+                e.preventDefault();
+                alert('Please enter a valid Philippine contact number (e.g., +639123456789 or 09123456789)');
                 return;
             }
-            
-            // Show success message
-            alert(`Thank you ${name}! Your loan application for ₱${amount.toLocaleString('en-PH')} has been submitted successfully. We will contact you at ${contact} within 24 hours.`);
-            
-            // Reset form
-            setTimeout(() => {
-                this.reset();
-                interestSlider.value = 5;
-                amountDisplay.textContent = '₱0';
-                updateLoanSummary();
-            }, 2000);
+
+            if (!name) {
+                e.preventDefault();
+                alert('Please enter your full name');
+                return;
+            }
+
+            // Allow the form to submit normally so backend saves the application and returns confirmation
+            // Optionally show a brief notice
+            // You can disable the button to prevent double-submit
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+            }
         });
     </script>
 </body>

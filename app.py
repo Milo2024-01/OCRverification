@@ -21,6 +21,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 import difflib
+import sqlite3
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
@@ -104,6 +105,35 @@ def get_reference_folder(document_type):
 for folder in [UPLOAD_FOLDER, REPORTS_FOLDER, 'static', 'templates']:
     os.makedirs(folder, exist_ok=True)
 
+# Path for SQLite DB
+DB_PATH = os.path.join(REPORTS_FOLDER, 'loan_applications.db')
+
+def init_db():
+    """Initialize SQLite database and create tables if missing."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS loan_applications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                full_name TEXT,
+                contact TEXT,
+                amount REAL,
+                months INTEGER,
+                interest_rate REAL,
+                monthly_payment REAL,
+                verification TEXT
+            )
+        ''')
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print('Failed to initialize database:', e)
+
+# initialize DB
+init_db()
+
 # Create reference folders for each document type
 for doc_type in DOCUMENT_TYPES:
     folder_path = os.path.join(REFERENCE_BASE_FOLDER, doc_type)
@@ -154,7 +184,7 @@ def login():
             response = jsonify({
                 'success': True,
                 'message': 'Login successful',
-                'redirect': '/'
+                'redirect': '/dashboard'
             })
             
             # Set secure cookie
@@ -183,8 +213,14 @@ def logout():
     token = request.cookies.get('session_token')
     if token and token in active_sessions:
         del active_sessions[token]
-    
-    response = jsonify({'success': True, 'message': 'Logged out successfully'})
+
+    # If client expects JSON, return JSON. If it's a browser form, redirect to login.
+    is_json = request.is_json or request.headers.get('Accept', '').find('application/json') != -1
+    if is_json:
+        response = jsonify({'success': True, 'message': 'Logged out successfully'})
+    else:
+        response = redirect('/login')
+
     response.set_cookie('session_token', '', expires=0)
     return response
 
@@ -992,67 +1028,103 @@ def generate_report():
 def loan_application():
     """Render loan application form (GET) and handle submission (POST)."""
     if not verify_session(request):
-        return jsonify({'message': 'Authentication required', 'success': False}), 401
-
+        return redirect('/login')
+    # GET: render form
     if request.method == 'GET':
         return render_template('loan_application.html')
 
-        # POST: process form
-        full_name = request.form.get('full_name', '').strip()
-        contact = request.form.get('contact', '').strip()
-        try:
-            amount = float(request.form.get('amount', '0'))
-        except:
-            amount = 0.0
-        try:
-            months = int(request.form.get('months', '0'))
-        except:
-            months = 0
-        try:
-            annual_rate = float(request.form.get('interest_rate', '0'))
-        except:
-            annual_rate = 0.0
+    # POST: process form submission
+    full_name = request.form.get('full_name', '').strip()
+    contact = request.form.get('contact', '').strip()
+    try:
+        amount = float(request.form.get('amount', '0'))
+    except:
+        amount = 0.0
+    try:
+        months = int(request.form.get('months', '0'))
+    except:
+        months = 0
+    try:
+        annual_rate = float(request.form.get('interest_rate', '0'))
+    except:
+        annual_rate = 0.0
 
-        # Calculate monthly payment using annuity formula
-        monthly_payment = 0.0
-        if months > 0:
-            r = annual_rate / 100.0 / 12.0
-            if r > 0:
-                monthly_payment = (amount * r) / (1 - (1 + r) ** (-months))
-            else:
-                monthly_payment = amount / months if months else 0.0
+    # Calculate monthly payment using annuity formula
+    monthly_payment = 0.0
+    if months > 0:
+        r = annual_rate / 100.0 / 12.0
+        if r > 0:
+            monthly_payment = (amount * r) / (1 - (1 + r) ** (-months))
+        else:
+            monthly_payment = amount / months if months else 0.0
 
-        monthly_payment_str = f"PHP {monthly_payment:,.2f}"
+    monthly_payment_str = f"PHP {monthly_payment:,.2f}"
 
-        # Persist application to reports folder
+    # Check for existing application by same contact or full name
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id FROM loan_applications WHERE contact = ? OR full_name = ? LIMIT 1', (contact, full_name))
+        existing = c.fetchone()
+        conn.close()
+        if existing:
+            # Applicant already has an application — do not process
+            error_msg = 'An application for this full name or contact already exists.'
+            return render_template('loan_application.html', error=error_msg,
+                                   full_name=full_name, contact=contact,
+                                   amount=amount, months=months, interest_rate=annual_rate)
+    except Exception as e:
+        print('Failed to check for duplicate application:', e)
+
+    # Persist application to reports folder (JSON) and save to SQLite
+    try:
+        os.makedirs(REPORTS_FOLDER, exist_ok=True)
+        app_data = {
+            'timestamp': datetime.now().isoformat(),
+            'full_name': full_name,
+            'contact': contact,
+            'amount': amount,
+            'months': months,
+            'interest_rate': annual_rate,
+            'monthly_payment': monthly_payment,
+        }
+        # include verification JSON if provided
+        ver_json = request.form.get('verification_json')
+        verification_text = None
+        if ver_json:
+            try:
+                app_data['verification'] = json.loads(ver_json)
+                verification_text = json.dumps(app_data['verification'], ensure_ascii=False)
+            except:
+                app_data['verification_raw'] = ver_json
+                verification_text = ver_json
+
+        # Save JSON copy (optional backup)
         try:
-            os.makedirs(REPORTS_FOLDER, exist_ok=True)
-            app_data = {
-                'timestamp': datetime.now().isoformat(),
-                'full_name': full_name,
-                'contact': contact,
-                'amount': amount,
-                'months': months,
-                'interest_rate': annual_rate,
-                'monthly_payment': monthly_payment,
-            }
-            # include verification JSON if provided
-            ver_json = request.form.get('verification_json')
-            if ver_json:
-                try:
-                    app_data['verification'] = json.loads(ver_json)
-                except:
-                    app_data['verification_raw'] = ver_json
-
             filename = os.path.join(REPORTS_FOLDER, f"loan_application_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(app_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print('Failed to save loan application:', e)
+            print('Failed to save loan application JSON backup:', e)
 
-        return render_template('loan_confirmation.html', full_name=full_name, contact=contact,
-                               amount=f"PHP {amount:,.2f}", months=months,
-                               interest_rate=annual_rate, monthly_payment=monthly_payment_str)
+        # Save to SQLite
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('''INSERT INTO loan_applications
+                         (timestamp, full_name, contact, amount, months, interest_rate, monthly_payment, verification)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                      (app_data['timestamp'], full_name, contact, amount, months, annual_rate, monthly_payment, verification_text))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print('Failed to save loan application to SQLite:', e)
+    except Exception as e:
+        print('Failed to prepare loan application save:', e)
+
+    return render_template('loan_confirmation.html', full_name=full_name, contact=contact,
+                           amount=f"PHP {amount:,.2f}", months=months,
+                           interest_rate=annual_rate, monthly_payment=monthly_payment_str)
 
 @app.route('/list-reports', methods=['GET'])
 def list_reports():
@@ -1078,6 +1150,148 @@ def list_reports():
             'reports': sorted(reports, key=lambda x: x['created'], reverse=True),
             'count': len(reports)
         })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    """Show a dashboard of loan applications (requires auth)."""
+    if not verify_session(request):
+        return redirect('/login')
+
+    apps = []
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT id,timestamp,full_name,contact,amount,months,interest_rate,monthly_payment FROM loan_applications ORDER BY id DESC')
+        rows = c.fetchall()
+        for r in rows:
+            apps.append({
+                'id': r['id'],
+                'timestamp': r['timestamp'],
+                'full_name': r['full_name'],
+                'contact': r['contact'],
+                'amount': r['amount'],
+                'months': r['months'],
+                'interest_rate': r['interest_rate'],
+                'monthly_payment': r['monthly_payment']
+            })
+        conn.close()
+    except Exception as e:
+        print('Failed to load applications for dashboard:', e)
+
+    return render_template('dashboard.html', applications=apps)
+
+
+@app.route('/authorize-admin', methods=['POST'])
+def authorize_admin():
+    """Verify admin password (used before sensitive actions)."""
+    if not verify_session(request):
+        return jsonify({'authorized': False, 'message': 'Authentication required'}), 401
+
+    data = {}
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form
+
+    password = data.get('password', '')
+    if password == VALID_CREDENTIALS.get('password'):
+        return jsonify({'authorized': True})
+    return jsonify({'authorized': False, 'message': 'Invalid password'}), 403
+
+
+@app.route('/delete-application/<int:app_id>', methods=['POST'])
+def delete_application(app_id):
+    """Delete a loan application by id (requires admin password)."""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+
+    data = request.get_json() if request.is_json else request.form
+    password = data.get('password', '')
+    if password != VALID_CREDENTIALS.get('password'):
+        return jsonify({'success': False, 'message': 'Invalid admin password'}), 403
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('DELETE FROM loan_applications WHERE id = ?', (app_id,))
+        conn.commit()
+        deleted = c.rowcount
+        conn.close()
+        if deleted:
+            return jsonify({'success': True, 'deleted': deleted})
+        else:
+            return jsonify({'success': False, 'message': 'Not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/update-application/<int:app_id>', methods=['POST'])
+def update_application(app_id):
+    """Update loan application fields (requires admin password)."""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+
+    data = request.get_json() if request.is_json else request.form
+    password = data.get('password', '')
+    if password != VALID_CREDENTIALS.get('password'):
+        return jsonify({'success': False, 'message': 'Invalid admin password'}), 403
+
+    # Allowed fields to update
+    full_name = data.get('full_name')
+    contact = data.get('contact')
+    try:
+        amount = float(data.get('amount')) if data.get('amount') is not None else None
+    except:
+        amount = None
+    try:
+        months = int(data.get('months')) if data.get('months') is not None else None
+    except:
+        months = None
+    try:
+        interest_rate = float(data.get('interest_rate')) if data.get('interest_rate') is not None else None
+    except:
+        interest_rate = None
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        # Build dynamic update
+        fields = []
+        values = []
+        if full_name is not None:
+            fields.append('full_name = ?')
+            values.append(full_name)
+        if contact is not None:
+            fields.append('contact = ?')
+            values.append(contact)
+        if amount is not None:
+            fields.append('amount = ?')
+            values.append(amount)
+        if months is not None:
+            fields.append('months = ?')
+            values.append(months)
+        if interest_rate is not None:
+            fields.append('interest_rate = ?')
+            values.append(interest_rate)
+
+        if not fields:
+            conn.close()
+            return jsonify({'success': False, 'message': 'No fields to update'}), 400
+
+        values.append(app_id)
+        sql = f"UPDATE loan_applications SET {', '.join(fields)} WHERE id = ?"
+        c.execute(sql, tuple(values))
+        conn.commit()
+        updated = c.rowcount
+        conn.close()
+        if updated:
+            return jsonify({'success': True, 'updated': updated})
+        else:
+            return jsonify({'success': False, 'message': 'Not found or no change'}), 404
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
