@@ -1,22 +1,28 @@
-# Web Framework
+# Python package requirements for OCRverification
+# Run: pip install -r requirements.txt
+
+# Web framework
 Flask==2.3.3
 Flask-CORS==4.0.0
 Werkzeug==2.3.7
 
-# Image Processing
+# Image processing
 opencv-python==4.8.1.78
 numpy==1.24.3
 Pillow==10.0.0
 
-# OCR
+# OCR wrapper (requires Tesseract installed separately)
 pytesseract==0.3.10
 
-# PDF Processing
+# PDF processing (requires poppler installed separately)
 pdf2image==1.16.3
 
-# PDF Report Generation
+# PDF report generation
 reportlab==4.0.4
 
-#Windows Installation Notes:
-# 1. Tesseract OCR installed separately
-# 2. Poppler (for pdf2image) installed separately
+# Optional (useful in development)
+# python-dotenv==1.0.0
+
+# System dependencies (install separately):
+# - Tesseract OCR (https://github.com/tesseract-ocr/tesseract)
+# - Poppler (for pdf2image) (https://poppler.freedesktop.org/)
