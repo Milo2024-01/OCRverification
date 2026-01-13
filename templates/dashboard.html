@@ -106,6 +106,8 @@
                             <th>Full Name</th>
                             <th>Contact</th>
                             <th>Amount</th>
+                            <th>Total Paid</th>
+                            <th>Balance</th>
                             <th>Months</th>
                             <th>Interest %</th>
                             <th>Monthly</th>
@@ -120,12 +122,16 @@
                             <td class="cell-fullname">{{ a.full_name }}</td>
                             <td class="cell-contact">{{ a.contact }}</td>
                             <td class="cell-amount">{{ "PHP {:,.2f}".format(a.amount) }}</td>
+                            <td class="cell-total-paid">{{ "PHP {:,.2f}".format(a.total_paid) }}</td>
+                            <td class="cell-balance">{{ "PHP {:,.2f}".format(a.balance) }}</td>
                             <td class="cell-months">{{ a.months }}</td>
                             <td class="cell-interest">{{ a.interest_rate }}</td>
                             <td class="cell-monthly">{{ "PHP {:,.2f}".format(a.monthly_payment) }}</td>
                             <td>
                                 <div class="row-actions">
                                     <button class="btn btn-ghost btn-edit" data-id="{{ a.id }}"><i class="fas fa-edit"></i> Edit</button>
+                                    <button class="btn btn-ghost btn-view-payments" data-id="{{ a.id }}"><i class="fas fa-list"></i> View</button>
+                                    <button class="btn btn-ghost btn-pay" data-id="{{ a.id }}"><i class="fas fa-credit-card"></i> Pay</button>
                                     <button class="btn btn-ghost btn-delete" data-id="{{ a.id }}"><i class="fas fa-trash-alt"></i> Delete</button>
                                 </div>
                             </td>
@@ -137,7 +143,7 @@
         </div>
 
     </div>
-    <footer class="site-footer" style="text-align:center;color:var(--muted);margin-top:14px;padding:12px 0">© Reserved 2025</footer>
+    <footer class="site-footer" style="text-align:center;color:var(--muted);margin-top:14px;padding:12px 0">©Authentication System, All rights reserved 2025</footer>
 
     <script>
         // Initialize theme
@@ -268,23 +274,123 @@
                     row.querySelector('.cell-interest').textContent = newInterest;
                     const monthly = (function(){ const amt = parseFloat(newAmount)||0; const rrate = (parseFloat(newInterest)||0)/100/12; const m = (rrate===0? (amt/(parseInt(newMonths)||1)) : (amt * rrate)/(1 - Math.pow(1 + rrate, -(parseInt(newMonths)||1)))); return m; })();
                     row.querySelector('.cell-monthly').textContent = 'PHP ' + monthly.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+                        // update balance (total_paid unchanged)
+                        const totalPaidText = row.querySelector('.cell-total-paid').textContent.replace(/[^0-9.\-]/g,'');
+                        const totalPaid = parseFloat(totalPaidText) || 0;
+                        const newBal = (parseFloat(newAmount)||0) - totalPaid;
+                        row.querySelector('.cell-balance').textContent = 'PHP ' + newBal.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
                 } else { alert('Failed: ' + (j.message||'unknown')) }
             }catch(e){console.error(e);alert('Update failed')}
         }));
 
-    </script>
-</body>
-</html>
+        // Pay 1 month handler
+        document.querySelectorAll('.btn-pay').forEach(btn=>btn.addEventListener('click', async function(){
+            const id = this.dataset.id;
+            const row = document.querySelector('tr[data-app-id="'+id+'"]');
+            if(!row) return;
+            // parse monthly amount from row (formatted like 'PHP 1,234.56')
+            const monthlyText = row.querySelector('.cell-monthly').textContent || '';
+            const amountNum = parseFloat(monthlyText.replace(/[^0-9.\-]/g,'')) || 0.0;
+            if(!confirm('Record payment of 1 month (amount: PHP ' + amountNum.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + ') for application #' + id + '?')) return;
+            try{
+                const payload = {months: 1, amount: amountNum};
+                const r = await fetch('/pay-application/' + id, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                const j = await r.json();
+                if(r.ok && j.success){ 
+                    alert('Payment recorded'); 
+                    // refresh totals in the row
+                    try{
+                        const resp = await fetch('/payments/' + id);
+                        const pj = await resp.json();
+                        if(resp.ok && pj.success){
+                            const payments = pj.payments || [];
+                            let total = 0;
+                            payments.forEach(p=>{ total += parseFloat(p.amount_paid)||0; });
+                            row.querySelector('.cell-total-paid').textContent = 'PHP ' + total.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+                            const amtText = row.querySelector('.cell-amount').textContent.replace(/[^0-9.\-]/g,'');
+                            const amtVal = parseFloat(amtText)||0;
+                            const bal = amtVal - total;
+                            row.querySelector('.cell-balance').textContent = 'PHP ' + bal.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+                        }
+                    }catch(e){console.error('Failed to refresh totals', e)}
+                } else { alert('Failed to record payment: ' + (j.message||'unknown')) }
+            }catch(e){console.error(e);alert('Payment failed')}
+        }));
 
-<!-- Password modal markup -->
-<div id="passwordModal" class="modal-backdrop" aria-hidden="true">
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
-        <div id="passwordModalTitle" style="font-weight:700;margin-bottom:8px">Admin Password</div>
-        <div id="passwordModalMessage" style="color:var(--muted);margin-bottom:8px">Enter admin password</div>
-        <input id="passwordModalInput" class="modal-input" type="password" autocomplete="current-password" />
-        <div class="modal-actions">
-            <button id="passwordModalCancel" class="btn btn-ghost">Cancel</button>
-            <button id="passwordModalOk" class="btn btn-primary">OK</button>
+        // View payments handler & modal
+        function showPaymentsModal(appId, paymentsHtml){
+            const modal = document.getElementById('paymentsModal');
+            const appSpan = document.getElementById('paymentsAppId');
+            const list = document.getElementById('paymentsList');
+            if(appSpan) appSpan.textContent = appId;
+            if(list) list.innerHTML = paymentsHtml || '<div style="color:var(--muted)">No payments found.</div>';
+            if(modal){
+                modal.style.display = 'flex';
+                const closeBtn = document.getElementById('paymentsModalClose');
+                if(closeBtn){
+                    closeBtn.onclick = function(){ modal.style.display = 'none'; };
+                }
+            }
+        }
+
+        async function fetchAndShowPayments(appId){
+            try{
+                const r = await fetch('/payments/' + appId);
+                const j = await r.json();
+                if(r.ok && j.success){
+                    const payments = j.payments || [];
+                    if(payments.length === 0){
+                        showPaymentsModal(appId, '<div style="color:var(--muted)">No payments recorded.</div>');
+                        return;
+                    }
+                    let html = '<table style="width:100%;border-collapse:collapse;color:var(--text)">';
+                    html += '<thead><tr><th style="text-align:left;padding:6px">ID</th><th style="text-align:left;padding:6px">Time</th><th style="text-align:left;padding:6px">Months</th><th style="text-align:left;padding:6px">Amount</th><th style="text-align:left;padding:6px">Payer</th></tr></thead><tbody>';
+                    payments.forEach(p=>{
+                        html += `<tr><td style="padding:6px">${p.id}</td><td style="padding:6px">${p.timestamp}</td><td style="padding:6px">${p.months_paid}</td><td style="padding:6px">PHP ${parseFloat(p.amount_paid).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="padding:6px">${p.payer||''}</td></tr>`;
+                    });
+                    html += '</tbody></table>';
+                    showPaymentsModal(appId, html);
+                } else {
+                    showPaymentsModal(appId, '<div style="color:var(--muted)">Failed to load payments.</div>');
+                }
+            }catch(e){
+                console.error(e);
+                showPaymentsModal(appId, '<div style="color:var(--muted)">Error loading payments.</div>');
+            }
+        }
+
+        document.querySelectorAll('.btn-view-payments').forEach(btn=>btn.addEventListener('click', function(){
+            const id = this.dataset.id;
+            fetchAndShowPayments(id);
+        }));
+
+        // Close payments modal is attached when modal is shown to ensure element exists
+
+    </script>
+
+    <!-- Password modal markup -->
+    <div id="passwordModal" class="modal-backdrop" aria-hidden="true">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+            <div id="passwordModalTitle" style="font-weight:700;margin-bottom:8px">Admin Password</div>
+            <div id="passwordModalMessage" style="color:var(--muted);margin-bottom:8px">Enter admin password</div>
+            <input id="passwordModalInput" class="modal-input" type="password" autocomplete="current-password" />
+            <div class="modal-actions">
+                <button id="passwordModalCancel" class="btn btn-ghost">Cancel</button>
+                <button id="passwordModalOk" class="btn btn-primary">OK</button>
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- Payments modal markup -->
+    <div id="paymentsModal" class="modal-backdrop" aria-hidden="true" style="display:none">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="paymentsModalTitle">
+            <div id="paymentsModalTitle" style="font-weight:700;margin-bottom:8px">Payments for Application <span id="paymentsAppId"></span></div>
+            <div id="paymentsList" style="color:var(--muted);max-height:320px;overflow:auto;margin-bottom:8px">Loading...</div>
+            <div class="modal-actions">
+                <button id="paymentsModalClose" class="btn btn-ghost">Close</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

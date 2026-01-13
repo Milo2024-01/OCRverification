@@ -126,6 +126,17 @@ def init_db():
                 verification TEXT
             )
         ''')
+        # Payments table: store payments made against applications
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                application_id INTEGER,
+                timestamp TEXT,
+                months_paid INTEGER,
+                amount_paid REAL,
+                payer TEXT
+            )
+        ''')
         conn.commit()
         conn.close()
     except Exception as e:
@@ -1168,6 +1179,17 @@ def dashboard():
         c.execute('SELECT id,timestamp,full_name,contact,amount,months,interest_rate,monthly_payment FROM loan_applications ORDER BY id DESC')
         rows = c.fetchall()
         for r in rows:
+            # compute total paid for this application
+            try:
+                c.execute('SELECT COALESCE(SUM(amount_paid), 0) as total_paid FROM payments WHERE application_id = ?', (r['id'],))
+                srow = c.fetchone()
+                total_paid = float(srow['total_paid']) if srow and 'total_paid' in srow.keys() else (float(srow[0]) if srow else 0.0)
+            except Exception:
+                total_paid = 0.0
+
+            amount_val = r['amount'] if r['amount'] is not None else 0.0
+            balance = float(amount_val) - float(total_paid)
+
             apps.append({
                 'id': r['id'],
                 'timestamp': r['timestamp'],
@@ -1176,13 +1198,74 @@ def dashboard():
                 'amount': r['amount'],
                 'months': r['months'],
                 'interest_rate': r['interest_rate'],
-                'monthly_payment': r['monthly_payment']
+                'monthly_payment': r['monthly_payment'],
+                'total_paid': total_paid,
+                'balance': balance
             })
         conn.close()
     except Exception as e:
         print('Failed to load applications for dashboard:', e)
 
     return render_template('dashboard.html', applications=apps)
+
+
+@app.route('/pay-application/<int:app_id>', methods=['POST'])
+def pay_application(app_id):
+    """Record a payment for a loan application (saves to payments table)."""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+
+    data = request.get_json() if request.is_json else request.form
+    try:
+        months = int(data.get('months', 1))
+    except:
+        months = 1
+    try:
+        amount = float(data.get('amount', 0))
+    except:
+        amount = 0.0
+    payer = data.get('payer', '')
+    timestamp = datetime.now().isoformat()
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('''INSERT INTO payments (application_id, timestamp, months_paid, amount_paid, payer)
+                     VALUES (?, ?, ?, ?, ?)''', (app_id, timestamp, months, amount, payer))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'message': 'Payment recorded', 'application_id': app_id, 'months': months, 'amount': amount})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/payments/<int:app_id>', methods=['GET'])
+def get_payments(app_id):
+    """Return list of payments for a given application id."""
+    if not verify_session(request):
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('''SELECT id, application_id, timestamp, months_paid, amount_paid, payer
+                     FROM payments WHERE application_id = ? ORDER BY id DESC''', (app_id,))
+        rows = c.fetchall()
+        payments = []
+        for r in rows:
+            payments.append({
+                'id': r['id'],
+                'application_id': r['application_id'],
+                'timestamp': r['timestamp'],
+                'months_paid': r['months_paid'],
+                'amount_paid': r['amount_paid'],
+                'payer': r['payer']
+            })
+        conn.close()
+        return jsonify({'success': True, 'payments': payments})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/authorize-admin', methods=['POST'])
